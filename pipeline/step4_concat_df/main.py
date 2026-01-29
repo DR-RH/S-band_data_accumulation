@@ -5,7 +5,7 @@ from .io import write_concat_binaries
 import pandas as pd
 
 
-def main(df: pd.DataFrame , save_datetime: str):
+def concat_data(df: pd.DataFrame , save_datetime: str):
     order_key = 'Packet no.'
     df = df.sort_values(order_key)
     concat_map = concat_payloads_by_key(
@@ -16,8 +16,12 @@ def main(df: pd.DataFrame , save_datetime: str):
     out_dir = Path("data/intermediate_output") / save_datetime
     write_concat_binaries(concat_map, out_dir)
 
+def main(df: pd.DataFrame , save_datetime: str):
+    concat_data(df,save_datetime)
+    return 
+
 if __name__ == "__main__":
-    save_datetime = 'received_20251030_133938'
+    save_datetime = 'jpg4_received_20260129_110648'
 
     input_path = Path("data/intermediate_output") / save_datetime / "step3_decode_ready.pickle"
 
