@@ -1,0 +1,9 @@
+[{"Bit(s)": "0:23", "Name": "Sync code", "dtype": "byte"},
+ {"Bit(s)": "24:87", "Name": "Datetime", "dtype": "datetime"},
+ {"Bit(s)": "88:92", "Name": "Frame counter, higher bits", "dtype": "int"},
+ {"Bit(s)": "93:95", "Name": "Frame counter, lower bits", "dtype": "int"},
+ {"Bit(s)": "96:111", "Name": "Packet ID", "dtype": "byte"},
+ {"Bit(s)": "112:127", "Name": "Total number of packets", "dtype": "int"},
+ {"Bit(s)": "128:143", "Name": "Packet no.", "dtype": "int"},
+ {"Bit(s)": "144:1071", "Name": "Data", "dtype": "byte"},
+ {"Bit(s)": "1072:1087", "Name": "CRC", "dtype": "byte"}]

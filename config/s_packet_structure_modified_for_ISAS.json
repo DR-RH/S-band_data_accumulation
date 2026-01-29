@@ -1,0 +1,10 @@
+[{"Bit(s)": "0:23", "Name": "Sync code", "dtype": "byte"},
+ {"Bit(s)": "24:87", "Name": "Datetime", "dtype": "datetime"},
+ {"Bit(s)": "88:167", "Name": "Demodulator symbol", "dtype": "byte"},
+ {"Bit(s)": "168:172", "Name": "Frame counter, higher bits", "dtype": "int"},
+ {"Bit(s)": "173:175", "Name": "Frame counter, lower bits", "dtype": "int"},
+ {"Bit(s)": "176:191", "Name": "Packet ID", "dtype": "byte"},
+ {"Bit(s)": "192:207", "Name": "Total number of packets", "dtype": "int"},
+ {"Bit(s)": "208:223", "Name": "Packet no.", "dtype": "int"},
+ {"Bit(s)": "224:1151", "Name": "Data", "dtype": "byte"},
+ {"Bit(s)": "1152:1167", "Name": "CRC", "dtype": "byte"}]
