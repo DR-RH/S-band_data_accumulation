@@ -12,7 +12,7 @@ class PipelineContext:
 ctx = PipelineContext(file_name=file_name, gse="ISAS")
 """
 
-file_name = "jpg4_received_20260129_110648"
+file_name = "received_20260219_102724"
 path = f"tlm/{file_name}.txt"
 gse = "ISAS"
 

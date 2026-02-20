@@ -26,7 +26,7 @@ def binarize(
     )
 
     if save_datetime:
-        out_dir = Path(f"data/intermediate_output/{save_datetime}.txt")  
+        out_dir = Path(f"data/intermediate_output/{save_datetime}")  
         write_step1_output(binary, out_dir)
 
     return binary
