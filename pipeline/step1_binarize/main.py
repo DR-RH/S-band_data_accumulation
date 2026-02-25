@@ -41,7 +41,7 @@ def main(
 
 
 if __name__ == "__main__":
-    file_name = 'jpg4_received_20260129_110648'
+    file_name = 'MAIN_EXE_LOG_RX_GSE_TCP_192_168_0_245_2000_20260225_113429'
     path = f"tlm/{file_name}.txt"
     save_datetime = get_save_directory_name(path)
     main(path, save_datetime)

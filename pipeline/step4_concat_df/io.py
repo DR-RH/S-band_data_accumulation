@@ -9,6 +9,6 @@ def write_concat_binaries(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for key, binary in data_map.items():
-        path = out_dir / f"step_4_concat_data_length_{key}.bin"
+        path = out_dir / f"step4_concat_data_length_{key}.bin"
         with open(path, "wb") as f:
             f.write(binary)

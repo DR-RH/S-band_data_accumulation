@@ -12,7 +12,7 @@ class PipelineContext:
 ctx = PipelineContext(file_name=file_name, gse="ISAS")
 """
 
-file_name = "received_20260219_102724"
+file_name = "MAIN_EXE_LOG_RX_GSE_TCP_192_168_0_245_2000_20260225_113429"
 path = f"tlm/{file_name}.txt"
 gse = "ISAS"
 
