@@ -23,7 +23,8 @@ def parse_packet(packet: bytes, bit_map: list[dict], index: int) -> dict:
         if dtype == "byte":
             record[entry["Name"]] = value.to_bytes(bit_length // 8, "big")
         elif dtype == "binary":
-            record[entry["Name"]] = bin(value)
+            # record[entry["Name"]] = bin(value)
+            record[entry["Name"]] = format(value, f'0{bit_length}b')
         elif dtype == "int":
             record[entry["Name"]] = value
         elif dtype == "datetime":

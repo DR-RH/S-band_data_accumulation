@@ -59,7 +59,7 @@ def build_timestamp_injected_binary(
     raw_text: str,
     timestamp_pattern: re.Pattern,
     strict_mode: bool = False
-) -> bytes:
+    ) -> bytes:
     """
     Full step1 transformation:
     raw log text -> timestamp injected binary
