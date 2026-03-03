@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 import logging
-from decoder import vertecs_process_log, adcs_main_decoder
+from decoder import main_log_decoder, adcs_main_decoder
 import pandas as pd
 
 def run(folder_name: str) -> List[Path]:
@@ -42,44 +42,29 @@ def _check_TLM_type(folder, bin_file):
             print("ADCS high")
             _decode_adcs_high(folder, bin_file)
 
-
-def _decode_main_exe(folder,bin_file):
-    lines = vertecs_process_log.decode(bin_file)
-
-
+def replace_folder_name(folder):
     parts = list(folder.parts)
     parts[1] = "final_product"   # 2段目を書き換え
-    new_path = Path(*parts)
-    # print(new_path)
-    # exit()
-    csv_path = new_path  / "obc_decoded.csv"
-    print(csv_path)
+    new_folder_name = Path(*parts)
+    return new_folder_name
+
+def save_csv_file(csv_path, data):
+    df = pd.DataFrame(data)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(csv_path,index=False)
 
-    with open(csv_path, "w", encoding="utf-8") as f:
-        f.writelines(lines)
-
+def _decode_main_exe(folder,bin_file):
+    lines = main_log_decoder.decode(bin_file)
+    new_folder_name = replace_folder_name(folder)
+    csv_path = new_folder_name  / "obc_decoded.csv"
+    save_csv_file(csv_path, lines)
     return csv_path
 
 
 def _decode_adcs_high(folder,bin_file):
     decoded_list = adcs_main_decoder.decode(bin_file)
-    df = pd.DataFrame(decoded_list)
-
-
-    parts = list(folder.parts)
-    parts[1] = "final_product"   # 2段目を書き換え
-    new_path = Path(*parts)
-    # print(new_path)
-    # exit()
-    csv_path = new_path  / "adcs_HK_decoded.csv"
-    print(csv_path)
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # os.makedirs(f'final_products/{timestamp}',exist_ok=True)
-    output_file = csv_path
-    df.to_csv(output_file,index=False)
-    # with open(csv_path, "w", encoding="utf-8") as f:
-    #     f.writelines(lines)
+    new_folder_name = replace_folder_name(folder)
+    csv_path = new_folder_name  / "adcs_HK_decoded.csv"
+    save_csv_file(csv_path, decoded_list)
 
     return csv_path

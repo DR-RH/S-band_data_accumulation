@@ -5,6 +5,7 @@ import struct
 import datetime
 import pytz
 import os
+import pandas as pd
 
 telemetry_size = 7
 
@@ -91,9 +92,10 @@ output_file = f'final_products/{timestamp}/obc_exe_log.csv'
 os.makedirs(f'final_products/{timestamp}', exist_ok= True)
 # Open output file for writing
 """
-
 def decode(bin_file):
-    records = []
+
+    rows = []
+
     with open(bin_file, "rb") as f:
         while True:
             chunk = f.read(telemetry_size)
@@ -101,11 +103,33 @@ def decode(bin_file):
                 break
 
             record = _decode_chunk(chunk)
-            if record == "None":
-                break
-            records.append(record)
 
-    return records
+            if record is None:
+                continue
+
+            rows.append(record)
+
+    df = pd.DataFrame(
+        rows,
+        columns=["timestamp", "source", "command", "command_name", "return"]
+    )
+
+    return df
+
+# def decode(bin_file):
+#     records = ["timestamp, source, command, command_name, return"]
+#     with open(bin_file, "rb") as f:
+#         while True:
+#             chunk = f.read(telemetry_size)
+#             if len(chunk) != telemetry_size:
+#                 break
+
+#             record = _decode_chunk(chunk)
+#             if record == "None":
+#                 break
+#             records.append(record)
+
+#     return records
 def _decode_chunk(chunk):
     # print(line.hex())
     (timestamp, source, command, error_value) = struct.unpack("i3B", chunk)
@@ -115,7 +139,7 @@ def _decode_chunk(chunk):
         command_name = command_list(full_command)
         print(chunk)
         print( f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
-        record = f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value)
+        record = [timestamp, command_name, format(source, "02X"), format(command,"02X"), format(error_value,"02X")]
 
         return record
     else:
