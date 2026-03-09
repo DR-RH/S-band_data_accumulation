@@ -4,6 +4,22 @@ import logging
 from decoder import main_log_decoder, adcs_main_decoder
 import pandas as pd
 
+
+# def _break_bin(bin_files):
+#     """
+#     To simulate packet loss, multiple blocks of 144 bytes are intentionally corrupted at arbitrary positions within the 144-byte cycle.
+#     """
+#     number = 1
+#     position = 1
+#     packet_block = 144
+
+#     start = packet_block*position
+#     end = packet_block*position + packet_block*number 
+
+#     broken_bin = bin_files[:start] + bin_files[end:]
+#     print(f'is them same {broken_bin == bin_files}')
+#     return broken_bin
+
 def run(folder_name: str) -> List[Path]:
     """
     Entry point of pipeline step 5.
@@ -16,6 +32,8 @@ def run(folder_name: str) -> List[Path]:
     if not folder.exists():
         raise FileNotFoundError(f"{folder} does not exist")
     bin_files = _collect_step4_files(folder)
+
+    # bin_files = _break_bin(bin_files)
 
     for bin_file in bin_files:
         _check_TLM_type(folder,bin_file)
@@ -52,6 +70,8 @@ def save_csv_file(csv_path, data):
     df = pd.DataFrame(data)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(csv_path,index=False)
+    print(f'saved {csv_path}')
+
 
 def _decode_main_exe(folder,bin_file):
     lines = main_log_decoder.decode(bin_file)

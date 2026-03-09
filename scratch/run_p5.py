@@ -3,3 +3,4 @@ folder_name = 'data/intermediate_output/MAIN_EXE_LOG_RX_GSE_TCP_192_168_0_245_20
 # folder_name = 'data/intermediate_output/Sun_tracking_received_202603021739'
 files = run(folder_name) 
 # print(files)
+

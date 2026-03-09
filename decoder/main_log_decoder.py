@@ -85,29 +85,76 @@ def command_list(command):
 #     output_file = input_file[:-4] + '.csv'
 # else:
 #     output_file = input_file + '.csv'
-"""
-timestamp = '3rd_tvt_under_vacuum_received_20251111_073140'
-input_file = f'concat_binary/{timestamp}/concat_data_length_6784.bin'
-output_file = f'final_products/{timestamp}/obc_exe_log.csv'
-os.makedirs(f'final_products/{timestamp}', exist_ok= True)
-# Open output file for writing
-"""
+
+
+#
+def _break_bin(
+    data: bytes,
+    list_of_p_n: list[tuple[int, int]],
+    block: int = 144
+    ) -> bytes:
+
+    data = bytearray(data)
+
+    for position, number_loss in list_of_p_n:
+        start = position * block
+        end = start + number_loss * block
+
+        if end > len(data):
+            raise ValueError("packet loss range exceeds data length")
+
+        data[start:end] = b"\xFF" * (block * number_loss)
+    return bytes(data)
+
+def _fix_broken_bin(
+    data: bytes,
+    list_of_p_n,
+    decode_byte_unit: int = 7,
+    block: int = 144,
+    ) -> bytes:
+
+    cut_off_start = 0
+    decodable_data = b''
+    for position, number_loss in list_of_p_n:
+        loss_start = block * position
+        cut_off_end = (loss_start // decode_byte_unit) * decode_byte_unit
+        decodable_data += data[cut_off_start:cut_off_end]
+        # align to decode unit
+        cut_off_start = (((position + number_loss)*block - 1) // decode_byte_unit + 1) * decode_byte_unit 
+    decodable_data += data[cut_off_start:]
+
+    # print(cut_off_end)
+    # print(cut_off_start)
+
+    return decodable_data
+
 def decode(bin_file):
 
     rows = []
 
     with open(bin_file, "rb") as f:
-        while True:
-            chunk = f.read(telemetry_size)
-            if len(chunk) != telemetry_size:
-                break
+        bin_data = f.read()
+    print(type(bin_data))
 
-            record = _decode_chunk(chunk)
+    decode_byte_unit = 7
+    list_of_p_n = ([1,2],[4,2])
+    # bin_data = _break_bin(bin_data, list_of_p_n)
+    # bin_data = _fix_broken_bin(bin_data, list_of_p_n, decode_byte_unit, )
 
-            if record is None:
-                continue
+    offset = 0
+    data_len = len(bin_data)
 
-            rows.append(record)
+    while offset + telemetry_size <= data_len:
+
+        chunk = bin_data[offset:offset + telemetry_size]
+        offset += telemetry_size
+
+        record = _decode_chunk(chunk)
+
+        if record is None:
+            continue
+
+        rows.append(record)
 
     df = pd.DataFrame(
         rows,
@@ -116,20 +163,7 @@ def decode(bin_file):
 
     return df
 
-# def decode(bin_file):
-#     records = ["timestamp, source, command, command_name, return"]
-#     with open(bin_file, "rb") as f:
-#         while True:
-#             chunk = f.read(telemetry_size)
-#             if len(chunk) != telemetry_size:
-#                 break
 
-#             record = _decode_chunk(chunk)
-#             if record == "None":
-#                 break
-#             records.append(record)
-
-#     return records
 def _decode_chunk(chunk):
     # print(line.hex())
     (timestamp, source, command, error_value) = struct.unpack("i3B", chunk)
@@ -137,8 +171,8 @@ def _decode_chunk(chunk):
         timestamp = datetime.datetime.fromtimestamp(timestamp,tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
         full_command = (source << 8) | command
         command_name = command_list(full_command)
-        print(chunk)
-        print( f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
+        # print(chunk)
+        # print( f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
         record = [timestamp, command_name, format(source, "02X"), format(command,"02X"), format(error_value,"02X")]
 
         return record
