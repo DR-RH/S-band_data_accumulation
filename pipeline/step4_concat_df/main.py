@@ -3,15 +3,23 @@ import pickle
 from .assemble import concat_payloads_by_key
 from .io import write_concat_binaries
 import pandas as pd
+import numpy as np
 
+def _break_packets(df):
+    # number_of_list = len(df)
+    rand_vals = np.random.rand(len(df))
+    df = df[rand_vals > 0.2]
+
+    return df
 
 def concat_data(df: pd.DataFrame , save_datetime: str):
     order_key = 'Packet no.'
     df = df.sort_values(order_key)
+    df = _break_packets(df)
     concat_map = concat_payloads_by_key(
         df,
-        group_key="Packet ID",
-        data_column="Data",
+        # group_key="Packet ID",
+        # data_column="Data",
     )
     out_dir = Path("data/intermediate_output") / save_datetime
     write_concat_binaries(concat_map, out_dir)

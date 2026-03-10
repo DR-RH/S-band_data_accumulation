@@ -108,19 +108,19 @@ def _break_bin(
 
 def _fix_broken_bin(
     data: bytes,
-    list_of_p_n,
+    posisions,
     decode_byte_unit: int = 7,
     block: int = 144,
     ) -> bytes:
-
+    
     cut_off_start = 0
     decodable_data = b''
-    for position, number_loss in list_of_p_n:
+    for position in posisions:
         loss_start = block * position
         cut_off_end = (loss_start // decode_byte_unit) * decode_byte_unit
         decodable_data += data[cut_off_start:cut_off_end]
         # align to decode unit
-        cut_off_start = (((position + number_loss)*block - 1) // decode_byte_unit + 1) * decode_byte_unit 
+        cut_off_start = (((position + 1)*block - 1) // decode_byte_unit + 1) * decode_byte_unit 
     decodable_data += data[cut_off_start:]
 
     # print(cut_off_end)
@@ -128,18 +128,21 @@ def _fix_broken_bin(
 
     return decodable_data
 
-def decode(bin_file):
+def decode(bin_file,):
 
     rows = []
-
+    missing_path = bin_file.with_name(bin_file.stem + "_missing.csv")
     with open(bin_file, "rb") as f:
         bin_data = f.read()
-    print(type(bin_data))
+    with open(missing_path,"r") as f:
+        line = f.read()
+        data_list = line.split(',')
+        missing = map(int,data_list)
 
     decode_byte_unit = 7
-    list_of_p_n = ([1,2],[4,2])
+    # list_of_p_n = ([1,2],[4,2])
     # bin_data = _break_bin(bin_data, list_of_p_n)
-    # bin_data = _fix_broken_bin(bin_data, list_of_p_n, decode_byte_unit, )
+    bin_data = _fix_broken_bin(bin_data, missing, decode_byte_unit, )
 
     offset = 0
     data_len = len(bin_data)
