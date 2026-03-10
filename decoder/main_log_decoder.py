@@ -7,7 +7,6 @@ import pytz
 import os
 import pandas as pd
 
-telemetry_size = 7
 
 def command_list(command):
     switcher = {
@@ -88,62 +87,17 @@ def command_list(command):
 
 
 #
-def _break_bin(
-    data: bytes,
-    list_of_p_n: list[tuple[int, int]],
-    block: int = 144
-    ) -> bytes:
 
-    data = bytearray(data)
 
-    for position, number_loss in list_of_p_n:
-        start = position * block
-        end = start + number_loss * block
-
-        if end > len(data):
-            raise ValueError("packet loss range exceeds data length")
-
-        data[start:end] = b"\xFF" * (block * number_loss)
-    return bytes(data)
-
-def _fix_broken_bin(
-    data: bytes,
-    posisions,
-    decode_byte_unit: int = 7,
-    block: int = 144,
-    ) -> bytes:
-    
-    cut_off_start = 0
-    decodable_data = b''
-    for position in posisions:
-        loss_start = block * position
-        cut_off_end = (loss_start // decode_byte_unit) * decode_byte_unit
-        decodable_data += data[cut_off_start:cut_off_end]
-        # align to decode unit
-        cut_off_start = (((position + 1)*block - 1) // decode_byte_unit + 1) * decode_byte_unit 
-    decodable_data += data[cut_off_start:]
-
-    # print(cut_off_end)
-    # print(cut_off_start)
-
-    return decodable_data
 
 def decode(bin_file,):
 
     rows = []
-    missing_path = bin_file.with_name(bin_file.stem + "_missing.csv")
     with open(bin_file, "rb") as f:
         bin_data = f.read()
-    with open(missing_path,"r") as f:
-        line = f.read()
-        data_list = line.split(',')
-        missing = map(int,data_list)
-
-    decode_byte_unit = 7
-    # list_of_p_n = ([1,2],[4,2])
-    # bin_data = _break_bin(bin_data, list_of_p_n)
-    bin_data = _fix_broken_bin(bin_data, missing, decode_byte_unit, )
-
+    # print(len(bin_data))
+    bin_data = bin_data[:]
+    telemetry_size = 7
     offset = 0
     data_len = len(bin_data)
 

@@ -1,10 +1,9 @@
 from typing import Dict
 import pandas as pd
-
 AUTO_PACKET_ID = "0101011001000101"
 
 def insert_missing_packets(group, missing):
-    block = 144
+    block = 116
     new_rows = pd.DataFrame({
         "Packet no.": missing,
         "Data": [b'\xFF' * block] * len(missing)
@@ -32,7 +31,6 @@ def concat_payloads_by_key(
     for key, group in df.groupby(group_key, sort=True):
         group = group.sort_values("Packet no.")
         payloads = group[data_column]
-        
         missing = []
 
         if not all(isinstance(x, (bytes, bytearray)) for x in payloads):
@@ -42,6 +40,10 @@ def concat_payloads_by_key(
             missing = get_missing_packets(group)
             group = insert_missing_packets(group, missing)
             group = group.sort_values("Packet no.")
+            # payload = b"".join(group[data_column])
+        #     decode_byte_unit = get_decode_unit_from_key(key)
+        #     payload = _fix_broken_bin(payload,missing,decode_byte_unit)
+        # else:
         payload = b"".join(group[data_column])
         result[key] = {
             "payload": payload,
