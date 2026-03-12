@@ -1,5 +1,5 @@
 from pathlib import Path
-from decoder import main_log_decoder, adcs_main_decoder
+from decoder import decoder_main_HK, decoder_main_log, decoder_adcs_HK  
 import pandas as pd
 from dataclasses import dataclass
 
@@ -16,15 +16,28 @@ class DecoderConfig:
 DECODER_REGISTRY = {
     "001": DecoderConfig(
         filetype="001",
-        decoder=main_log_decoder.decode,
+        decoder=decoder_main_log.decode,
         output_name="obc_decoded.csv",
         decode_unit=7,
     ),
     "011": DecoderConfig(
         filetype="011",
-        decoder=adcs_main_decoder.decode,
-        output_name="adcs_HK_decoded.csv",
+        decoder=decoder_adcs_HK.decode,
+        output_name="adcs_High_HK_decoded.csv",
         decode_unit=1473,
+    ),
+    "100": DecoderConfig(
+        filetype="011",
+        decoder=decoder_adcs_HK.decode,
+        output_name="adcs_Normal_HK_decoded.csv",
+        decode_unit=1473,
+    ),
+    "110": DecoderConfig(
+        filetype="110",
+        decoder=decoder_main_log.decode,
+        # decoder=decoder_main_HK.decode,
+        output_name="main_HK_decoded.csv",
+        decode_unit=191,
     ),
 }
 

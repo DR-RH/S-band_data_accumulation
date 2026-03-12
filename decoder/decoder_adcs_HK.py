@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta, timezone
 import struct
 
 import pandas as pd
-from decoder import adcs_HK_list
+from decoder import adcs_HK_dedicated
 from datetime import datetime 
 def get_fmt_size(fmt):
     # struct.calcsize returns the number of bytes from the format string
@@ -36,6 +37,15 @@ def mask_lower_bits(value: int, bit_str: str) -> int:
     mask = (1 << num_bits) - 1  # 例えば 2ビットなら (1<<2)-1 = 0b11
     return value & mask
 
+def convert_tai_to_datetime(tai_integer):
+    # 1. Counted from 2000 January 1, 2000 00:00:00
+    epoch_2000 = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    # 2. Add the input seconds
+    converted_date = epoch_2000 + timedelta(seconds=tai_integer)
+    strftime_str = converted_date.strftime('%Y-%m-%d %H:%M:%S')
+    return strftime_str
+
 def extract_and_decode(
     data,
     params_list,
@@ -62,7 +72,6 @@ def extract_and_decode(
             fmt = 'B'
         else:
             fmt = fmt_raw
-        # print(fmt)
         num_bytes = get_fmt_size(fmt)
         endian_prefix = '<' if endian == 'little' else '>'
         # print(endian_prefix, fmt)
@@ -94,6 +103,7 @@ def extract_and_decode(
                 if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
                     value = mask_lower_bits(value,fmt_raw)
                 results[name] = value*conversion_factor
+
         except Exception as e:
             print(f"{name}: Decode error: {e}")
             results[name] = None
@@ -119,7 +129,7 @@ def decode(bin_path):
 
         # print(data)
         decoded_data = extract_and_decode(
-            single_packet, adcs_HK_list.adcs_HK
+            single_packet, adcs_HK_dedicated.adcs_HK_dedicated_list
         )
         # print(decoded_data)
         decoded_list.append(decoded_data)
