@@ -134,8 +134,8 @@ def decode(bin_path):
         decoded_list.append(decoded_data)
     return decoded_list
     # df = pd.DataFrame(decoded_list)
-    # os.makedirs(f'final_products/{timestamp}',exist_ok=True)
-    # output_file = f'final_products/{timestamp}/{timestamp}_{sample_mode}.csv'
+    # os.makedirs(f'decodeds/{timestamp}',exist_ok=True)
+    # output_file = f'decodeds/{timestamp}/{timestamp}_{sample_mode}.csv'
     # df.to_csv(output_file)
     # Write each line as csv
 

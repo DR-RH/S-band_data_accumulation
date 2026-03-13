@@ -30,14 +30,31 @@ def adcs_offset_bin(data: bytes) -> bytes:
 def no_offset(data):
     return data 
 
+def decode_undefined(data):
+    return ["NO","data"]
 
 DECODER_REGISTRY = {
+    "000": DecoderConfig(
+    # undefined
+        filetype="000",
+        decoder=decode_undefined,
+        output_name="undefined.csv",
+        decode_unit=8,
+        bin_offset_by_sync_code=no_offset,
+    ),
     "001": DecoderConfig(
         filetype="001",
         decoder=decoder_main_log.decode,
         output_name="obc_decoded.csv",
         decode_unit=7,
         bin_offset_by_sync_code = no_offset,
+    ),
+    "010": DecoderConfig(
+        filetype="010",
+        decoder=decode_undefined,
+        output_name="undefined.csv",
+        decode_unit=8,
+        bin_offset_by_sync_code=no_offset,
     ),
     "011": DecoderConfig(
         filetype="011",
@@ -47,6 +64,7 @@ DECODER_REGISTRY = {
         bin_offset_by_sync_code = adcs_offset_bin,
 
     ),
+    
     "100": DecoderConfig(
         filetype="100",
         decoder=decoder_adcs_HK.decode,
@@ -54,13 +72,30 @@ DECODER_REGISTRY = {
         decode_unit=1473,
         bin_offset_by_sync_code = adcs_offset_bin,
     ),
+
+    "101": DecoderConfig(
+        # unsetting
+        filetype="101",
+        decoder=decode_undefined,
+        output_name="undefined.csv",
+        decode_unit=8,
+        bin_offset_by_sync_code=no_offset,
+    ),
     "110": DecoderConfig(
         filetype="110",
-        decoder=decoder_main_log.decode,
+        decoder=decoder_main_HK.decode,
         # decoder=decoder_main_HK.decode,
         output_name="main_HK_decoded.csv",
         decode_unit=191,
         bin_offset_by_sync_code = no_offset,
+    ),
+    "111": DecoderConfig(
+        # unsetting
+        filetype="111",
+        decoder=decode_undefined,
+        output_name="undefined.csv",
+        decode_unit=8,
+        bin_offset_by_sync_code=no_offset,
     ),
 }
 
@@ -85,7 +120,9 @@ def decode_file(folder: Path, bin_path: Path) -> Path | None:
     
     with open(bin_path, 'rb') as f:
         data = f.read()
+    data = data.rstrip(b"\xFF")
     data = config.bin_offset_by_sync_code(data)
+
     decoded = config.decoder(data)
     out_folder = _replace_folder_name(folder)
     csv_path = out_folder / config.output_name
@@ -103,6 +140,7 @@ def get_decode_unit_from_key(key: str) -> int | None:
     return None if config is None else config.decode_unit
 
 def _extract_filetype(bin_file: Path) -> str:
+    # step4_concat_data_adcs_normal_2026-03-12_1540_decodable_hex
     return bin_file.stem.split("step4_concat_data_ID_")[-1][:3]
 
 
@@ -112,7 +150,7 @@ def _replace_folder_name(folder: Path) -> Path:
     if len(parts) < 2:
         raise ValueError("folder depth too shallow")
 
-    parts[1] = "final_product"
+    parts[1] = "decoded"
     return Path(*parts)
 
 

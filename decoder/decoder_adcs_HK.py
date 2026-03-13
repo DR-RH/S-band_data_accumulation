@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta, timezone
 import struct
-
-import pandas as pd
 from decoder import adcs_HK_dedicated
 from datetime import datetime 
 def get_fmt_size(fmt):
@@ -106,22 +104,6 @@ def extract_and_decode(
                     value = mask_lower_bits(value, fmt_raw)
 
                 results[name] = value * conversion_factor
-        # try:
-        #     if fmt_raw == "T":
-        #         #Little EndianでUNIX時間を取得
-        #         unix_time = struct.unpack('<I', int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
-                
-        #         dt_object = datetime.fromtimestamp(unix_time)
-        #         results[name] = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-        #     else:
-        #         value = struct.unpack(format_str, int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
-        #         if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
-        #             value = mask_lower_bits(value,fmt_raw)
-        #         results[name] = value*conversion_factor
-        # except Exception as e:
-        #     print(f"{name}: Decode error: {e}")
-        #     results[name] = None
-
 
     return results
 
@@ -142,8 +124,8 @@ def decode(data: bytes):
         decoded_list.append(decoded_data)
     return decoded_list
     # df = pd.DataFrame(decoded_list)
-    # os.makedirs(f'final_products/{timestamp}',exist_ok=True)
-    # output_file = f'final_products/{timestamp}/{timestamp}_{sample_mode}.csv'
+    # os.makedirs(f'decodeds/{timestamp}',exist_ok=True)
+    # output_file = f'decodeds/{timestamp}/{timestamp}_{sample_mode}.csv'
     # df.to_csv(output_file)
     # Write each line as csv
 

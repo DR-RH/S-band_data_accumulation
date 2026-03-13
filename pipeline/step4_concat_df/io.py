@@ -46,7 +46,7 @@ def write_concat_binaries(
         decode_byte_unit = get_decode_unit_from_key(key)
         binary_decodable = fix_broken_bin(binary, missing,decode_byte_unit)
 
-        prefix = f"step4_concat_data_{data_type}_{filename_time}"
+        prefix = f"step4_concat_data_ID_{id_type}_{data_type}_{filename_time}"
         raw_path = out_dir / f"{prefix}_raw_filled.bin"
         missing_path = out_dir / f"{prefix}_missing.csv"
         decodable_path = out_dir / f"{prefix}_decodable.bin"

@@ -12,13 +12,21 @@ class PipelineContext:
 ctx = PipelineContext(file_name=file_name, gse="ISAS")
 """
 
+def get_ges_type(file_name):
+    print(file_name)
+    if "RX_COM" in file_name:
+        gse = "Kyutech"
+    else:
+        gse = "ISAS"
+    return gse
 file_name = "all_tlm_in_RX_COM_COM7_20260312_153552"
 # file_name = "MAIN_EXE_LOG_RX_GSE_TCP_192_168_0_245_2000_20260225_113429"
+# file_name = "Sun_tracking_RX_GSE_TCP_received_202603021739"
 path = f"tlm/{file_name}.txt"
-gse = "Kyutech"
-# gse = "ISAS"
-
+# gse = "Kyutech"
+gse = get_ges_type(file_name)
 binary = binarize(path, file_name)
 valid_binary = verify_crc(binary, gse, file_name)
 df = parse_into_df(valid_binary, gse, file_name)
+# print(df)
 concat_data(df,file_name)

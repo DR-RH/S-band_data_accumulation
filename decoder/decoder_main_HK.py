@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys
+# import sys
 import struct
 import datetime
 import pytz
@@ -8,11 +8,13 @@ import glob
 import os
 from bisect import bisect_left
 # from adcs_decoding import extract_and_decode as adcs_extract_and_decode
-# from adcs_hklist import hklist
-import tkinter as tk
-from tkinter import filedialog, messagebox
+from decoder.adcs_HK_list_of_main import adcs_HK_list
+from decoder.decoder_adcs_of_main import extract_and_decode
+# import tkinter as tk
+# from tkinter import filedialog, messagebox
 
 # -------- temperature sensor decoding ---------
+MAIN_TELEMETLY_SIZE = 191
 
 def bin_to_resistance(binary):
     """
@@ -81,33 +83,37 @@ def bin_to_temperature(binary):
 
 # -------- telemetry decoding ---------
 
+# def process_timestamp (unix_time, delta):
+#     print(unix_time)
+#     print(delta)
+#     if delta == 0xFF:
+#         return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+#     else:
+#         return datetime.datetime.fromtimestamp(unix_time - delta, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+
 def process_timestamp (unix_time, delta):
-    if delta == 0xFF:
-        return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
-    else:
-        return datetime.datetime.fromtimestamp(unix_time - delta, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
 
-def process_realtime_telemetry(line):
-    telemetry_size = 191
-    manually_fixed_start_time = None
-    sampling_time = 60
-    sampling_time_set = False
-    previous_timestamp = None
-    line_count = 1
-    correction_delta = 0
-    [parameters, previous_timestamp, correction_delta, line_count] = process_telemetry_line(line, telemetry_size, manually_fixed_start_time, sampling_time, sampling_time_set, previous_timestamp, line_count, correction_delta)
-    return parameters
+    # if delta == 0xFF:
+    #     return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+    # else:
+    return datetime.datetime.fromtimestamp(unix_time , tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S") 
 
-def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_start_time: int, 
-                           sampling_time: int, sampling_time_set :int, previous_timestamp: int, line_count: int, 
-                           correction_delta: int) -> tuple[dict, int, int]:
-    if len(line) != telemetry_size:
-        raise ValueError(f"Line {line_count} is incomplete or invalid.")
+
+# def process_realtime_telemetry(line):
+#     manually_fixed_start_time = None
+#     sampling_time = 60
+#     sampling_time_set = False
+#     previous_timestamp = None
+#     line_count = 1
+#     correction_delta = 0
+#     MAIN_[parameters, previous_timestamp, correction_delta, line_count] = process_telemetry_chunk(line, MAIN_TELEMETLY_SIZE, manually_fixed_start_time, sampling_time, sampling_time_set, previous_timestamp, line_count, correction_delta)
+#     return parameters
+
+def process_telemetry_chunk(chunk: bytes):
 
     # Initialize parameters dictionary
     parameters = {}
-
-    line=line[0:telemetry_size - 2]
+    chunk=chunk[0:MAIN_TELEMETLY_SIZE - 2]
     
     # Unpack reset pic data
     (timestamp_reset,
@@ -126,7 +132,7 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         current_unreg3,
         current_12v,
         power_line_status,
-        status_main_pic) = struct.unpack(">7B8H2B164x", line)
+        status_main_pic) = struct.unpack(">7B8H2B164x", chunk)
 
     # Unpack eps pic data
     (timestamp_fab,
@@ -159,7 +165,7 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         heater_status,
         kill_switch_status,
         temp_heater_ref,
-        voltage_heater_ref)= struct.unpack(">25x1B26H2B2H105x", line)
+        voltage_heater_ref)= struct.unpack(">25x1B26H2B2H105x", chunk)
 
     # Unpack relay pic data
     (timestamp_pcib,
@@ -169,12 +175,12 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         payload_heater_status,
         payload_heater_sensor_config,
         status_tk_px,
-        status_tk_mx) = struct.unpack("<84x1B3H4B94x", line)
+        status_tk_mx) = struct.unpack("<84x1B3H4B94x", chunk)
 
     # Unpack adcs pic data
-    timestamp_adcs = struct.unpack("<B", line[95:96])[0]
-    adcs_data = b'\xAD\x90' + line[96:169] + b'\x00\x00'
-    adcs_converted = adcs_extract_and_decode(adcs_data, hklist)
+    timestamp_adcs = struct.unpack("<B", chunk[95:96])[0]
+    adcs_data = b'\xAD\x90' + chunk[96:169] + b'\x00\x00'
+    adcs_converted = extract_and_decode(adcs_data, adcs_HK_list)
 
     # Unpack com pic data
     (timestamp_com,
@@ -183,7 +189,7 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         test_mode,
         temp_stx,
         sband_rx_rssi,
-        freq_err) = struct.unpack("<169x4B3H10x", line)
+        freq_err) = struct.unpack("<169x4B3H10x", chunk)
 
     # Unpack OBC data
     (number_scheduled_command_legacy,
@@ -192,420 +198,265 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         subsystem_communication,
         status_ocp,
         hours_after_reset,
-        timestamp_obc) = struct.unpack("<179x6B1I", line)
+        timestamp_obc) = struct.unpack("<179x6B1I", chunk)
 
     timestamp_in_memory = timestamp_obc
 
-    # DATA CORRECTION START
-    if(manually_fixed_start_time != None): # if the start time is not set, do not perform any correction
-        if previous_timestamp == None:
-            correction_delta = manually_fixed_start_time - timestamp_obc
-            previous_timestamp = timestamp_obc - sampling_time
-        time_delta = previous_timestamp - timestamp_obc
-        previous_timestamp = timestamp_obc
-        if(sampling_time_set and (time_delta >= 0 or time_delta < -(sampling_time))): # Only correct time inconsistencies if sampling time is set
-            print("Warning: Correcting time inconsistency at line", line_count + 1, file=sys.stderr)
-            correction_delta += (time_delta + sampling_time)
-        timestamp_obc += correction_delta
-        line_count+=1
-    # DATA CORRECTION END
 
     # Reset HK
-    if(timestamp_reset != 0xFF):
-        timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
-        try:
-            reset_date = datetime.datetime(2000+year, month, day, hour, minute, second, 0, pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
-        except:
-            reset_date = ""
-        # Voltage equation
-        voltage_raw_power = voltage_raw_power * 3.3 * 3 / 4096
+    timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
+    voltage_raw_power = voltage_raw_power * 3.3 * 3 / 4096
 
-        # Current equations
-        current_3v3_1 = (1606.822 * current_3v3_1 * 3.3 / 4096) - 37.39071
-        current_3v3_2 = (1595.419618 * current_3v3_2 * 3.3 / 4096) - 0.252035868
-        current_5v0 = (801.63197 * current_5v0 * 3.3 / 4096) - 3.163097
-        current_unreg1 = (2407.441267 * current_unreg1 * 3.3 / 4096) - 6.117030991
-        current_unreg2 = (2421.76513 * current_unreg2 * 3.3 / 4096) - 10.1421109
-        current_unreg3 = (1973.436273 * current_unreg3 * 3.3 / 4096) - 9.717381297
-        current_12v = (1567.774583 * current_12v * 3.3 / 4096) - 3.51635074
+    # Current equations
+    current_3v3_1 = (1606.822 * current_3v3_1 * 3.3 / 4096) - 37.39071
+    current_3v3_2 = (1595.419618 * current_3v3_2 * 3.3 / 4096) - 0.252035868
+    current_5v0 = (801.63197 * current_5v0 * 3.3 / 4096) - 3.163097
+    current_unreg1 = (2407.441267 * current_unreg1 * 3.3 / 4096) - 6.117030991
+    current_unreg2 = (2421.76513 * current_unreg2 * 3.3 / 4096) - 10.1421109
+    current_unreg3 = (1973.436273 * current_unreg3 * 3.3 / 4096) - 9.717381297
+    current_12v = (1567.774583 * current_12v * 3.3 / 4096) - 3.51635074
 
-        # Power line status
-        status_3v3_1 = (power_line_status & 0b10000000) >> 7
-        status_3v3_2 = (power_line_status & 0b01000000) >> 6
-        status_5v = (power_line_status & 0b00100000) >> 5
-        status_unreg1 = (power_line_status & 0b00010000) >> 4
-        status_unreg2 = (power_line_status & 0b00001000) >> 3
-        status_unreg3 = (power_line_status & 0b00000100) >> 2
-        status_12v = (power_line_status & 0b00000010) >> 1
-        status_com_pic = (power_line_status & 0b00000001) >> 0
-        status_main_pic = (status_main_pic & 0b00000001) >> 0
-    else:
-        timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
-        reset_date = ""
-        voltage_raw_power = 0
-        current_3v3_1 = 0
-        current_3v3_2 = 0
-        current_5v0 = 0
-        current_unreg1 = 0
-        current_unreg2 = 0
-        current_unreg3 = 0
-        current_12v = 0
-        status_3v3_1 = 0
-        status_3v3_2 = 0
-        status_5v = 0
-        status_unreg1 = 0
-        status_unreg2 = 0
-        status_unreg3 = 0
-        status_12v = 0
-        status_com_pic = 0
-        status_main_pic = 0
+    # Power line status
+    status_3v3_1 = (power_line_status & 0b10000000) >> 7
+    status_3v3_2 = (power_line_status & 0b01000000) >> 6
+    status_5v = (power_line_status & 0b00100000) >> 5
+    status_unreg1 = (power_line_status & 0b00010000) >> 4
+    status_unreg2 = (power_line_status & 0b00001000) >> 3
+    status_unreg3 = (power_line_status & 0b00000100) >> 2
+    status_12v = (power_line_status & 0b00000010) >> 1
+    status_com_pic = (power_line_status & 0b00000001) >> 0
+    status_main_pic = (status_main_pic & 0b00000001) >> 0
+
+    timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
+    reset_date = ""
+    voltage_raw_power = 0
+    current_3v3_1 = 0
+    current_3v3_2 = 0
+    current_5v0 = 0
+    current_unreg1 = 0
+    current_unreg2 = 0
+    current_unreg3 = 0
+    current_12v = 0
+    status_3v3_1 = 0
+    status_3v3_2 = 0
+    status_5v = 0
+    status_unreg1 = 0
+    status_unreg2 = 0
+    status_unreg3 = 0
+    status_12v = 0
+    status_com_pic = 0
+    status_main_pic = 0
 
     #EPS-1 HK
-    if(timestamp_fab != 0xFF):
-        timestamp_fab = process_timestamp(timestamp_obc, timestamp_fab)
+    timestamp_fab = process_timestamp(timestamp_obc, timestamp_fab)
 
-        # Temperature equations
-        temp_minus_y = ((temp_minus_y * 2500 / 4096) - 723.5) / -5.5
-        temp_plus_x = ((temp_plus_x * 2500 / 4096) - 1030.9) / -5.5
-        temp_minus_x = ((temp_minus_x * 2500 / 4096) - 1027.7 ) / -5.5
-        temp_dsap_plus_x = ((temp_dsap_plus_x * 2500 / 4096) - 1014.8) / -5.5
-        temp_dsap_minus_x = ((temp_dsap_minus_x * 2500 / 4096) - 1033.3) / -5.5
-        temp_plus_y = ((temp_plus_y * 2500 / 4096) - 1013.77) / -5.5 
-        temp_bpb = ((temp_bpb * 2500 / 4096) - 1022.4) / -5.5
+    # Temperature equations
+    temp_minus_y = ((temp_minus_y * 2500 / 4096) - 723.5) / -5.5
+    temp_plus_x = ((temp_plus_x * 2500 / 4096) - 1030.9) / -5.5
+    temp_minus_x = ((temp_minus_x * 2500 / 4096) - 1027.7 ) / -5.5
+    temp_dsap_plus_x = ((temp_dsap_plus_x * 2500 / 4096) - 1014.8) / -5.5
+    temp_dsap_minus_x = ((temp_dsap_minus_x * 2500 / 4096) - 1033.3) / -5.5
+    temp_plus_y = ((temp_plus_y * 2500 / 4096) - 1013.77) / -5.5 
+    temp_bpb = ((temp_bpb * 2500 / 4096) - 1022.4) / -5.5
 
-        # Voltage equations
-        voltage_BCR_1 = voltage_BCR_1 * 2.5 * 4 / 4096
-        voltage_BCR_2 = voltage_BCR_2 * 2.5 * 4 / 4096
-        voltage_BCR_3 = voltage_BCR_3 * 2.5 * 4 / 4096
+    # Voltage equations
+    voltage_BCR_1 = voltage_BCR_1 * 2.5 * 4 / 4096
+    voltage_BCR_2 = voltage_BCR_2 * 2.5 * 4 / 4096
+    voltage_BCR_3 = voltage_BCR_3 * 2.5 * 4 / 4096
 
-        # Current equations
-        current_minus_y = (0.327357 * (current_minus_y * 3.28 / 4096)) - 0.0314547
-        current_dsap_plus_x_3s3p = (0.359681 * (current_dsap_plus_x_3s3p * 3.28 / 4096)) - 0.00566
-        current_dsap_plus_x_3s2p = (0.317965 * (current_dsap_plus_x_3s2p * 3.28 / 4096)) - 0.03349
-        current_dsap_minus_x_3s2p = (0.321226 * (current_dsap_minus_x_3s2p * 3.28 / 4096)) - 0.03196
-        current_dsap_minus_x_3s3p = (0.311014 * (current_dsap_minus_x_3s3p * 3.28 / 4096)) - 0.0239
-        current_bm_plus_x = (0.353379 * (current_bm_plus_x * 3.28 / 4096)) - 0.00472
-        current_bm_minus_x = (0.305826 * (current_bm_minus_x * 3.28 / 4096)) - 0.01856
-        current_heater = (4.020205 * (current_heater * 3.28 / 4096)) - 1.35776
+    # Current equations
+    current_minus_y = (0.327357 * (current_minus_y * 3.28 / 4096)) - 0.0314547
+    current_dsap_plus_x_3s3p = (0.359681 * (current_dsap_plus_x_3s3p * 3.28 / 4096)) - 0.00566
+    current_dsap_plus_x_3s2p = (0.317965 * (current_dsap_plus_x_3s2p * 3.28 / 4096)) - 0.03349
+    current_dsap_minus_x_3s2p = (0.321226 * (current_dsap_minus_x_3s2p * 3.28 / 4096)) - 0.03196
+    current_dsap_minus_x_3s3p = (0.311014 * (current_dsap_minus_x_3s3p * 3.28 / 4096)) - 0.0239
+    current_bm_plus_x = (0.353379 * (current_bm_plus_x * 3.28 / 4096)) - 0.00472
+    current_bm_minus_x = (0.305826 * (current_bm_minus_x * 3.28 / 4096)) - 0.01856
+    current_heater = (4.020205 * (current_heater * 3.28 / 4096)) - 1.35776
 
-        # Voltage raw equations
-        voltage_raw = (voltage_raw * 3.3 / 4096) * 3
-        voltage_battery = (voltage_battery * 3.3 / 4096) * 3
+    # Voltage raw equations
+    voltage_raw = (voltage_raw * 3.3 / 4096) * 3
+    voltage_battery = (voltage_battery * 3.3 / 4096) * 3
 
-        # Current raw equations
-        current_raw = (4.020205 * (current_raw * 3.28 / 4096)) - 1.35776
-        current_battery = (3.863206 * (current_battery * 3.28 / 4096)) - 6.36292                                                
+    # Current raw equations
+    current_raw = (4.020205 * (current_raw * 3.28 / 4096)) - 1.35776
+    current_battery = (3.863206 * (current_battery * 3.28 / 4096)) - 6.36292                                                
 
-        # Temperature battery equation
-        temp_battery = 75 - temp_battery * 3.256 / 4096 * 30
+    # Temperature battery equation
+    temp_battery = 75 - temp_battery * 3.256 / 4096 * 30
 
-        # Heater status equation
-        heater_status = heater_status
-        battery_heater_enabled = (heater_status >> 4) & 0x1
-        battery_heater_on_off = heater_status & 0x1
+    # Heater status equation
+    heater_status = heater_status
+    battery_heater_enabled = (heater_status >> 4) & 0x1
+    battery_heater_on_off = heater_status & 0x1
 
-        # Kill switch status
-        kill_switch_status_obc = kill_switch_status & 0x1
-        kill_switch_status_eps = kill_switch_status >> 4
+    # Kill switch status
+    kill_switch_status_obc = kill_switch_status & 0x1
+    kill_switch_status_eps = kill_switch_status >> 4
 
-        # Temperature ref equation
-        temp_heater_ref = 75 - (temp_heater_ref * 3.256 / 4096 * 30)
+    # Temperature ref equation
+    temp_heater_ref = 75 - (temp_heater_ref * 3.256 / 4096 * 30)
 
-        # Voltage heater ref equation
-        voltage_heater_ref = voltage_heater_ref * 3.3 * 3 / 4096
-    else:
-        timestamp_fab = process_timestamp(timestamp_obc, timestamp_fab)
-        temp_minus_y = 0
-        temp_plus_x = 0
-        temp_minus_x = 0
-        temp_dsap_plus_x = 0
-        temp_dsap_minus_x = 0
-        temp_plus_y = 0
-        temp_bpb = 0
-        no_data_1 = 0
-        no_data_2 = 0
-        no_data_3 = 0
-        voltage_BCR_1 = 0
-        voltage_BCR_2 = 0
-        voltage_BCR_3 = 0
-        current_minus_y = 0
-        current_dsap_plus_x_3s3p = 0
-        current_dsap_plus_x_3s2p = 0
-        current_dsap_minus_x_3s2p = 0
-        current_dsap_minus_x_3s3p = 0
-        current_bm_plus_x = 0
-        current_bm_minus_x = 0
-        current_heater = 0
-        voltage_raw = 0
-        voltage_battery = 0
-        current_raw = 0
-        current_battery = 0
-        temp_battery = 0
-        heater_status = 0
-        battery_heater_enabled = 0
-        battery_heater_on_off = 0
-        kill_switch_status_obc = 0
-        kill_switch_status_eps = 0
-        temp_heater_ref = 0
-        voltage_heater_ref = 0
-
+    # Voltage heater ref equation
+    voltage_heater_ref = voltage_heater_ref * 3.3 * 3 / 4096
+   
     #ADB HK
-    if(timestamp_pcib != 0xFF):
-        timestamp_pcib = process_timestamp(timestamp_obc, timestamp_pcib)
-        temp_pl_1 = bin_to_temperature(temp_pl_1)
-        temp_pl_2 = bin_to_temperature(temp_pl_2)
-        temp_pl_3 = bin_to_temperature(temp_pl_3)
-        payload_heater_status = payload_heater_status
-        payload_heater_enabled = payload_heater_status & 0x1
-        payload_heater_on_off = (payload_heater_status >> 4) & 0x1
-        payload_heater_sensor_config = payload_heater_sensor_config
-        payload_heater_config = (payload_heater_sensor_config >> 4) & 0xF
-        payload_sensor_config = payload_heater_sensor_config & 0xF
-        """
-        status_tk_px
-        status_tk_mx
-        """
-    else:
-        timestamp_pcib = process_timestamp(timestamp_obc, timestamp_pcib)
-        temp_pl_1 = 0
-        temp_pl_2 = 0
-        temp_pl_3 = 0
-        payload_heater_status = 0
-        payload_heater_enabled = 0
-        payload_heater_on_off = 0
-        payload_heater_sensor_config = 0
-        payload_heater_config = 0
-        payload_sensor_config = 0
-        status_tk_px = 0
-        status_tk_mx = 0
+    timestamp_pcib = process_timestamp(timestamp_obc, timestamp_pcib)
+    temp_pl_1 = bin_to_temperature(temp_pl_1)
+    temp_pl_2 = bin_to_temperature(temp_pl_2)
+    temp_pl_3 = bin_to_temperature(temp_pl_3)
+    payload_heater_status = payload_heater_status
+    payload_heater_enabled = payload_heater_status & 0x1
+    payload_heater_on_off = (payload_heater_status >> 4) & 0x1
+    payload_heater_sensor_config = payload_heater_sensor_config
+    payload_heater_config = (payload_heater_sensor_config >> 4) & 0xF
+    payload_sensor_config = payload_heater_sensor_config & 0xF
+    """
+    status_tk_px
+    status_tk_mx
+    """
 
     #ADCS HK:
-    if(timestamp_adcs != 0xFF):
-        timestamp_adcs = process_timestamp(timestamp_obc, timestamp_adcs)
-        v3v_status = adcs_converted["3V3 status"]
-        v12v_low_power_status = adcs_converted["12V low power status"]
-        v12v_high_power_status = adcs_converted["12V high power status"]
-        v12vh_current = adcs_converted["12VH current"]
-        v12vl_current = adcs_converted["12VL current"]
-        boot_relay_status = adcs_converted["Boot Relay Status"]
-        watchdog_reset_enable_status = adcs_converted["Watchdog Reset Enable Status"]
-        watchdog_reset_event_status = adcs_converted["Watchdog Reset Event Status"]
-        processor_reset_arm_status = adcs_converted["Processor reset arm status"]
-        tai_seconds = adcs_converted["TAI_SECONDS"]
-        refs_health_1pack_gps_valid = adcs_converted["REFS_HEALTH_1PACK - GPS_VALID"]
-        refs_health_1pack_refs_valid = adcs_converted["REFS_HEALTH_1PACK - REFS_VALID"]
-        refs_health_1pack_earth_penumbra_umbra = adcs_converted["REFS_HEALTH_1PACK - EARTH_PENUMBRA_UMBRA"]
-        mag_source_used = adcs_converted["MAG_SOURCE_USED"]
-        att_status = adcs_converted["ATT_STATUS"]
-        id_status = adcs_converted["ID_STATUS"]
-        num_attitude_stars = adcs_converted["NUM_ATTITUDE_STARS"]
-        inertia_index = adcs_converted["INERTIA_INDEX"]
-        sun_point_state = adcs_converted["SUN_POINT_STATE"]
-        cmd_accept_count = adcs_converted["CMD_ACCEPT_COUNT"]
-        cmd_reject_count = adcs_converted["CMD_REJECT_COUNT"]
-        position_wrt_eci_1 = adcs_converted["POSITION_WRT_ECI_1"]
-        position_wrt_eci_2 = adcs_converted["POSITION_WRT_ECI_2"]
-        position_wrt_eci_3 = adcs_converted["POSITION_WRT_ECI_3"]
-        velocity_wrt_eci_1 = adcs_converted["VELOCITY_WRT_ECI_1"]
-        velocity_wrt_eci_2 = adcs_converted["VELOCITY_WRT_ECI_2"]
-        velocity_wrt_eci_3 = adcs_converted["VELOCITY_WRT_ECI_3"]
-        mag_model_vector_body_1 = adcs_converted["MAG_MODEL_VECTOR_BODY_1"]
-        mag_model_vector_body_2 = adcs_converted["MAG_MODEL_VECTOR_BODY_2"]
-        mag_model_vector_body_3 = adcs_converted["MAG_MODEL_VECTOR_BODY_3"]
-        mag_health_1pack_mag_power_state = adcs_converted["MAG_HEALTH_1PACK - MAG_POWER_STATE"]
-        mag_health_1pack_mag_vector_valid = adcs_converted["MAG_HEALTH_1PACK - MAG_VECTOR_VALID"]
-        mag_health_1pack_mag_vector_enabled = adcs_converted["MAG_HEALTH_1PACK - MAG_VECTOR_ENABLED"]
-        mag_health_1pack_mag_test_mode = adcs_converted["MAG_HEALTH_1PACK - MAG_TEST_MODE"]
-        mag_health_1pack_mag_sensor_used = adcs_converted["MAG_HEALTH_1PACK - MAG_SENSOR_USED"]
-        sun_vector_body_1 = adcs_converted["SUN_VECTOR_BODY_1"]
-        sun_vector_body_2 = adcs_converted["SUN_VECTOR_BODY_2"]
-        sun_vector_body_3 = adcs_converted["SUN_VECTOR_BODY_3"]
-        css_health_1pack_css_power_state = adcs_converted["CSS_HEALTH_1PACK - CSS_POWER_STATE"]
-        css_health_1pack_meas_sun_valid = adcs_converted["CSS_HEALTH_1PACK - MEAS_SUN_VALID"]
-        css_health_1pack_sun_vector_enabled = adcs_converted["CSS_HEALTH_1PACK - SUN_VECTOR_ENABLED"]
-        css_health_1pack_css_test_mode = adcs_converted["CSS_HEALTH_1PACK - CSS_TEST_MODE"]
-        css_health_1pack_sun_sensor_used = adcs_converted["CSS_HEALTH_1PACK - SUN_SENSOR_USED"]
-        q_body_wrt_eci_1 = adcs_converted["Q_BODY_WRT_ECI_1"]
-        q_body_wrt_eci_2 = adcs_converted["Q_BODY_WRT_ECI_2"]
-        q_body_wrt_eci_3 = adcs_converted["Q_BODY_WRT_ECI_3"]
-        q_body_wrt_eci_4 = adcs_converted["Q_BODY_WRT_ECI_4"]
-        att_det_health_1pack_attitude_valid = adcs_converted["ATT_DET_HEALTH_1PACK - ATTITUDE_VALID"]
-        att_det_health_1pack_meas_att_valid = adcs_converted["ATT_DET_HEALTH_1PACK - MEAS_ATT_VALID"]
-        att_det_health_1pack_meas_rate_valid = adcs_converted["ATT_DET_HEALTH_1PACK - MEAS_RATE_VALID"]
-        att_det_health_1pack_imu_data_valid = adcs_converted["ATT_DET_HEALTH_1PACK - IMU_DATA_VALID"]
-        att_det_health_1pack_tracker_1data_valid = adcs_converted["ATT_DET_HEALTH_1PACK - TRACKER_1DATA_VALID"]
-        body_rate_1 = adcs_converted["BODY_RATE_1"]
-        body_rate_2 = adcs_converted["BODY_RATE_2"]
-        body_rate_3 = adcs_converted["BODY_RATE_3"]
-        operating_mode_1 = adcs_converted["OPERATING_MODE_1"]
-        operating_mode_2 = adcs_converted["OPERATING_MODE_2"]
-        operating_mode_3 = adcs_converted["OPERATING_MODE_3"]
-        filtered_speed_rpm_1 = adcs_converted["FILTERED_SPEED_RPM_1"]
-        filtered_speed_rpm_2 = adcs_converted["FILTERED_SPEED_RPM_2"]
-        filtered_speed_rpm_3 = adcs_converted["FILTERED_SPEED_RPM_3"]
-        motor_1_temp = adcs_converted["MOTOR_1TEMP"]
-        motor_2_temp = adcs_converted["MOTOR_2TEMP"]
-        motor_3_temp = adcs_converted["MOTOR_3TEMP"]
-        att_cmd_health_1_packadcs_mode = adcs_converted["ATT_CMD_HEALTH_1 - PACKADCS_MODE"]
-        att_cmd_health_1_recommend_sun_point = adcs_converted["ATT_CMD_HEALTH_1 - RECOMMEND_SUN_POINT"]
-        att_cmd_health_1_sun_point_reason = adcs_converted["ATT_CMD_HEALTH_1 - SUN_POINT_REASON"]
-        att_ctrl_health_1pack_att_ctrl_active = adcs_converted["ATT_CTRL_HEALTH_1PACK - ATT_CTRL_ACTIVE"]
-        att_ctrl_health_1pack_momentum_too_high = adcs_converted["ATT_CTRL_HEALTH_1PACK - MOMENTUM_TOO_HIGH"]
-        att_ctrl_health_1pack_on_sun_flag = adcs_converted["ATT_CTRL_HEALTH_1PACK - ON_SUN_FLAG"]
-        att_ctrl_health_1pack_sun_avoid_flag = adcs_converted["ATT_CTRL_HEALTH_1PACK - SUN_AVOID_FLAG"]
-        att_ctrl_health_1pack_sun_source_failover = adcs_converted["ATT_CTRL_HEALTH_1PACK - SUN_SOURCE_FAILOVER"]
-        sun_point_angle_error = adcs_converted["SUN_POINT_ANGLE_ERROR"]
-        eigen_error = adcs_converted["EIGEN_ERROR"]
-    else:
-        timestamp_adcs = process_timestamp(timestamp_obc, timestamp_adcs)
-        v3v_status = 0
-        v12v_low_power_status = 0
-        v12v_high_power_status = 0
-        v12vh_current = 0
-        v12vl_current = 0
-        boot_relay_status = 0
-        watchdog_reset_enable_status = 0
-        watchdog_reset_event_status = 0
-        processor_reset_arm_status = 0
-        tai_seconds = 0
-        refs_health_1pack_gps_valid = 0
-        refs_health_1pack_refs_valid = 0
-        refs_health_1pack_earth_penumbra_umbra = 0
-        mag_source_used = 0
-        att_status = 0
-        id_status = 0
-        num_attitude_stars = 0
-        inertia_index = 0
-        sun_point_state = 0
-        cmd_accept_count = 0
-        cmd_reject_count = 0
-        position_wrt_eci_1 = 0
-        position_wrt_eci_2 = 0
-        position_wrt_eci_3 = 0
-        velocity_wrt_eci_1 = 0
-        velocity_wrt_eci_2 = 0
-        velocity_wrt_eci_3 = 0
-        mag_model_vector_body_1 = 0
-        mag_model_vector_body_2 = 0
-        mag_model_vector_body_3 = 0
-        mag_health_1pack_mag_power_state = 0
-        mag_health_1pack_mag_vector_valid = 0
-        mag_health_1pack_mag_vector_enabled = 0
-        mag_health_1pack_mag_test_mode = 0
-        mag_health_1pack_mag_sensor_used = 0
-        sun_vector_body_1 = 0
-        sun_vector_body_2 = 0
-        sun_vector_body_3 = 0
-        css_health_1pack_css_power_state = 0
-        css_health_1pack_meas_sun_valid = 0
-        css_health_1pack_sun_vector_enabled = 0
-        css_health_1pack_css_test_mode = 0
-        css_health_1pack_sun_sensor_used = 0
-        q_body_wrt_eci_1 = 0
-        q_body_wrt_eci_2 = 0
-        q_body_wrt_eci_3 = 0
-        q_body_wrt_eci_4 = 0
-        att_det_health_1pack_attitude_valid = 0
-        att_det_health_1pack_meas_att_valid = 0
-        att_det_health_1pack_meas_rate_valid = 0
-        att_det_health_1pack_imu_data_valid = 0
-        att_det_health_1pack_tracker_1data_valid = 0
-        body_rate_1 = 0
-        body_rate_2 = 0
-        body_rate_3 = 0
-        operating_mode_1 = 0
-        operating_mode_2 = 0
-        operating_mode_3 = 0
-        filtered_speed_rpm_1 = 0
-        filtered_speed_rpm_2 = 0
-        filtered_speed_rpm_3 = 0
-        motor_1_temp = 0
-        motor_2_temp = 0
-        motor_3_temp = 0
-        att_cmd_health_1_packadcs_mode = 0
-        att_cmd_health_1_recommend_sun_point = 0
-        att_cmd_health_1_sun_point_reason = 0
-        att_ctrl_health_1pack_att_ctrl_active = 0
-        att_ctrl_health_1pack_momentum_too_high = 0
-        att_ctrl_health_1pack_on_sun_flag = 0
-        att_ctrl_health_1pack_sun_avoid_flag = 0
-        att_ctrl_health_1pack_sun_source_failover = 0
-        sun_point_angle_error = 0
-        eigen_error = 0
+    timestamp_adcs = process_timestamp(timestamp_obc, timestamp_adcs)
+    v3v_status = adcs_converted["3V3 status"]
+    v12v_low_power_status = adcs_converted["12V low power status"]
+    v12v_high_power_status = adcs_converted["12V high power status"]
+    v12vh_current = adcs_converted["12VH current"]
+    v12vl_current = adcs_converted["12VL current"]
+    boot_relay_status = adcs_converted["Boot Relay Status"]
+    watchdog_reset_enable_status = adcs_converted["Watchdog Reset Enable Status"]
+    watchdog_reset_event_status = adcs_converted["Watchdog Reset Event Status"]
+    processor_reset_arm_status = adcs_converted["Processor reset arm status"]
+    tai_seconds = adcs_converted["TAI_SECONDS"]
+    refs_health_1pack_gps_valid = adcs_converted["GPS_VALID"]
+    refs_health_1pack_refs_valid = adcs_converted["REFS_VALID"]
+    refs_health_1pack_earth_penumbra_umbra = adcs_converted["EARTH_PENUMBRA_UMBRA"]
+    mag_source_used = adcs_converted["MAG_SOURCE_USED"]
+    att_status = adcs_converted["ATT_STATUS"]
+    id_status = adcs_converted["ID_STATUS"]
+    num_attitude_stars = adcs_converted["NUM_ATTITUDE_STARS"]
+    inertia_index = adcs_converted["INERTIA_INDEX"]
+    sun_point_state = adcs_converted["SUN_POINT_STATE"]
+    cmd_accept_count = adcs_converted["CMD_ACCEPT_COUNT"]
+    cmd_reject_count = adcs_converted["CMD_REJECT_COUNT"]
+    position_wrt_eci_1 = adcs_converted["POSITION_WRT_ECI_1"]
+    position_wrt_eci_2 = adcs_converted["POSITION_WRT_ECI_2"]
+    position_wrt_eci_3 = adcs_converted["POSITION_WRT_ECI_3"]
+    velocity_wrt_eci_1 = adcs_converted["VELOCITY_WRT_ECI_1"]
+    velocity_wrt_eci_2 = adcs_converted["VELOCITY_WRT_ECI_2"]
+    velocity_wrt_eci_3 = adcs_converted["VELOCITY_WRT_ECI_3"]
+    mag_model_vector_body_1 = adcs_converted["MAG_MODEL_VECTOR_BODY_1"]
+    mag_model_vector_body_2 = adcs_converted["MAG_MODEL_VECTOR_BODY_2"]
+    mag_model_vector_body_3 = adcs_converted["MAG_MODEL_VECTOR_BODY_3"]
+    mag_health_1pack_mag_power_state = adcs_converted["MAG_POWER_STATE"]
+    mag_health_1pack_mag_vector_valid = adcs_converted["MAG_VECTOR_VALID"]
+    mag_health_1pack_mag_vector_enabled = adcs_converted["MAG_VECTOR_ENABLED"]
+    mag_health_1pack_mag_test_mode = adcs_converted["MAG_TEST_MODE"]
+    mag_health_1pack_mag_sensor_used = adcs_converted["MAG_SENSOR_USED"]
+    sun_vector_body_1 = adcs_converted["SUN_VECTOR_BODY_1"]
+    sun_vector_body_2 = adcs_converted["SUN_VECTOR_BODY_2"]
+    sun_vector_body_3 = adcs_converted["SUN_VECTOR_BODY_3"]
+    css_health_1pack_css_power_state = adcs_converted["CSS_POWER_STATE"]
+    css_health_1pack_meas_sun_valid = adcs_converted["MEAS_SUN_VALID"]
+    css_health_1pack_sun_vector_enabled = adcs_converted["SUN_VECTOR_ENABLED"]
+    css_health_1pack_css_test_mode = adcs_converted["CSS_TEST_MODE"]
+    css_health_1pack_sun_sensor_used = adcs_converted["SUN_SENSOR_USED"]
+    q_body_wrt_eci_1 = adcs_converted["Q_BODY_WRT_ECI_1"]
+    q_body_wrt_eci_2 = adcs_converted["Q_BODY_WRT_ECI_2"]
+    q_body_wrt_eci_3 = adcs_converted["Q_BODY_WRT_ECI_3"]
+    q_body_wrt_eci_4 = adcs_converted["Q_BODY_WRT_ECI_4"]
+    att_det_health_1pack_attitude_valid = adcs_converted["ATTITUDE_VALID"]
+    att_det_health_1pack_meas_att_valid = adcs_converted["MEAS_ATT_VALID"]
+    att_det_health_1pack_meas_rate_valid = adcs_converted["MEAS_RATE_VALID"]
+    att_det_health_1pack_imu_data_valid = adcs_converted["IMU_DATA_VALID"]
+    att_det_health_1pack_tracker_1data_valid = adcs_converted["TRACKER_1DATA_VALID"]
+    body_rate_1 = adcs_converted["BODY_RATE_1"]
+    body_rate_2 = adcs_converted["BODY_RATE_2"]
+    body_rate_3 = adcs_converted["BODY_RATE_3"]
+    operating_mode_1 = adcs_converted["OPERATING_MODE_1"]
+    operating_mode_2 = adcs_converted["OPERATING_MODE_2"]
+    operating_mode_3 = adcs_converted["OPERATING_MODE_3"]
+    filtered_speed_rpm_1 = adcs_converted["FILTERED_SPEED_RPM_1"]
+    filtered_speed_rpm_2 = adcs_converted["FILTERED_SPEED_RPM_2"]
+    filtered_speed_rpm_3 = adcs_converted["FILTERED_SPEED_RPM_3"]
+    motor_1_temp = adcs_converted["MOTOR_1TEMP"]
+    motor_2_temp = adcs_converted["MOTOR_2TEMP"]
+    motor_3_temp = adcs_converted["MOTOR_3TEMP"]
+    att_cmd_health_1_packadcs_mode = adcs_converted["ADCS_MODE"]
+    att_cmd_health_1_recommend_sun_point = adcs_converted["RECOMMEND_SUN_POINT"]
+    att_cmd_health_1_sun_point_reason = adcs_converted["SUN_POINT_REASON"]
+    att_ctrl_health_1pack_att_ctrl_active = adcs_converted["ATT_CTRL_ACTIVE"]
+    att_ctrl_health_1pack_momentum_too_high = adcs_converted["MOMENTUM_TOO_HIGH"]
+    att_ctrl_health_1pack_on_sun_flag = adcs_converted["ON_SUN_FLAG"]
+    att_ctrl_health_1pack_sun_avoid_flag = adcs_converted["SUN_AVOID_FLAG"]
+    att_ctrl_health_1pack_sun_source_failover = adcs_converted["SUN_SOURCE_FAILOVER"]
+    sun_point_angle_error = adcs_converted["SUN_POINT_ANGLE_ERROR"]
+    eigen_error = adcs_converted["EIGEN_ERROR"]
+    
     
     #COM HK
-    if(timestamp_com != 0xFF):
-        timestamp_com = process_timestamp(timestamp_obc, timestamp_com)
+    timestamp_com = process_timestamp(timestamp_obc, timestamp_com)
 
-        A = operation_mode  & 0x0F   # ex.0x36 -> 0x6
-        R = bitrate_setting & 0x0F   # ex.0x34 -> 0x4
-        T = test_mode       & 0x0F   # ex.0x44 -> 0x4
+    A = operation_mode  & 0x0F   # ex.0x36 -> 0x6
+    R = bitrate_setting & 0x0F   # ex.0x34 -> 0x4
+    T = test_mode       & 0x0F   # ex.0x44 -> 0x4
 
-         # ---- operation_mode ----
-        d3 = (A >> 3) & 1
-        d2 = (A >> 2) & 1
-        power_tbl = {
-            0b00: "RF OFF",  #RF_OFF
-            0b01: "PWL",  #PWL 
-            0b10: "PWL",  #PWL
-            0b11: "PWH",  #PWH
-        }
-        operation_mode = power_tbl[(d3 << 1) | d2]
+        # ---- operation_mode ----
+    d3 = (A >> 3) & 1
+    d2 = (A >> 2) & 1
+    power_tbl = {
+        0b00: "RF OFF",  #RF_OFF
+        0b01: "PWL",  #PWL 
+        0b10: "PWL",  #PWL
+        0b11: "PWH",  #PWH
+    }
+    operation_mode = power_tbl[(d3 << 1) | d2]
 
-        # ---- bitrate_setting ----
-        rate_tbl = {0: 10000, 1: 20000, 2: 32000, 3: 50000, 4: 64000}
-        bitrate_setting = rate_tbl.get(R, 0) 
+    # ---- bitrate_setting ----
+    rate_tbl = {0: 10000, 1: 20000, 2: 32000, 3: 50000, 4: 64000}
+    bitrate_setting = rate_tbl.get(R, 0) 
 
-        # ---- test_mode ----
-        test_mode_expected = 0x4  
-        test_mode = "Normal" if (T & 0xF) == test_mode_expected else "Abnormal"
+    # ---- test_mode ----
+    test_mode_expected = 0x4  
+    test_mode = "Normal" if (T & 0xF) == test_mode_expected else "Abnormal"
 
-        #---- temp_stx (12bit) ----
-        x = temp_stx & 0x0FFF
-        temp_stx = 3.6438137698*((x * 3.3 * 1_000_000) / (7.5 * 1_000 * (2**12)) - 273.15) + 70.0851054839
+    #---- temp_stx (12bit) ----
+    x = temp_stx & 0x0FFF
+    temp_stx = 3.6438137698*((x * 3.3 * 1_000_000) / (7.5 * 1_000 * (2**12)) - 273.15) + 70.0851054839
 
-        #---- sband_rx_rssi (12bit) ----
-        y = sband_rx_rssi & 0x0FFF
-        sband_rx_rssi = (y * 3.3) / (2**12)
-        dbm_tbl = [-40, -45, -50, -55, -60, -65, -70, -75, -80, -85,
-                   -90, -95, -100, -105, -110, -115, -120, -125, -130, "-"]
-        v_tbl   = [2.80, 2.77, 2.73, 2.65, 2.55, 2.41, 2.28, 2.13, 1.99, 1.85,
-                   1.71, 1.57, 1.44, 1.31, 1.19, 1.10, 1.04, 1.02, 1.01, 1.00]
-        min_idx = 0
-        min_diff = abs(sband_rx_rssi - v_tbl[0])
-        for i in range(1, len(v_tbl)):
-            diff = abs(sband_rx_rssi - v_tbl[i])
-            if diff < min_diff:
-                min_diff = diff
-                min_idx = i
-        sband_rx_rssi = dbm_tbl[min_idx]   
+    #---- sband_rx_rssi (12bit) ----
+    y = sband_rx_rssi & 0x0FFF
+    sband_rx_rssi = (y * 3.3) / (2**12)
+    dbm_tbl = [-40, -45, -50, -55, -60, -65, -70, -75, -80, -85,
+                -90, -95, -100, -105, -110, -115, -120, -125, -130, "-"]
+    v_tbl   = [2.80, 2.77, 2.73, 2.65, 2.55, 2.41, 2.28, 2.13, 1.99, 1.85,
+                1.71, 1.57, 1.44, 1.31, 1.19, 1.10, 1.04, 1.02, 1.01, 1.00]
+    min_idx = 0
+    min_diff = abs(sband_rx_rssi - v_tbl[0])
+    for i in range(1, len(v_tbl)):
+        diff = abs(sband_rx_rssi - v_tbl[i])
+        if diff < min_diff:
+            min_diff = diff
+            min_idx = i
+    sband_rx_rssi = dbm_tbl[min_idx]   
 
-        #---- freq_err (12bit) ----
-        z = freq_err & 0x0FFF
-        freq_err = (z * 3.3) / (2**12)   # まず電圧[V]にする
-        khz_tbl = [-80, -70, -60, -50, -40, -30, -20, -10, 0,
-                 +10, +20, +30, +40, +50, +60, +70, +80, +90,
-                "UNLOCK"]
-        vfreq_tbl = [0.02, 0.32, 0.64, 0.97, 1.29, 1.59, 1.88, 2.15, 2.40,
-                    2.63, 2.86, 3.08, 3.30, 3.53, 3.78, 4.08, 4.45, 4.94,
-                    2.52]
-        min_idx = 0
-        min_diff = abs(freq_err - vfreq_tbl[0])
-        for i in range(1, len(vfreq_tbl)):
-            diff = abs(freq_err - vfreq_tbl[i])
-            if diff < min_diff:
-                min_diff = diff
-                min_idx = i
-        freq_err = khz_tbl[min_idx]   
-
-    else:
-        timestamp_com = process_timestamp(timestamp_obc, timestamp_com)
-        operation_mode=0
-        bitrate_setting=0
-        test_mode=0
-        temp_stx=0
-        sband_rx_rssi=0
-        freq_err=0
+    #---- freq_err (12bit) ----
+    z = freq_err & 0x0FFF
+    freq_err = (z * 3.3) / (2**12)   # まず電圧[V]にする
+    khz_tbl = [-80, -70, -60, -50, -40, -30, -20, -10, 0,
+                +10, +20, +30, +40, +50, +60, +70, +80, +90,
+            "UNLOCK"]
+    vfreq_tbl = [0.02, 0.32, 0.64, 0.97, 1.29, 1.59, 1.88, 2.15, 2.40,
+                2.63, 2.86, 3.08, 3.30, 3.53, 3.78, 4.08, 4.45, 4.94,
+                2.52]
+    min_idx = 0
+    min_diff = abs(freq_err - vfreq_tbl[0])
+    for i in range(1, len(vfreq_tbl)):
+        diff = abs(freq_err - vfreq_tbl[i])
+        if diff < min_diff:
+            min_diff = diff
+            min_idx = i
+    freq_err = khz_tbl[min_idx]   
 
     #Main HK
     timestamp_obc = process_timestamp(timestamp_obc, 0)
@@ -778,142 +629,90 @@ def process_telemetry_line(line: bytes, telemetry_size: int, manually_fixed_star
         "timestamp_obc": timestamp_obc,
     }
 
-    return parameters, previous_timestamp, correction_delta, line_count
+    return parameters
 
-def tlm_process(filename): 
-    manually_fixed_start_time = None
-    sampling_time = None
-    sampling_time_set = False
+def decode(data:bytes): 
+    # manually_fixed_start_time = None
+    # sampling_time = None
+    # sampling_time_set = False
 
-    if "_timefix_" in filename:
-        try:
-            manually_fixed_start_time = int(filename.split("_timefix_")[-1].split("_")[0])
-            print("Manually fixed start time:", manually_fixed_start_time, file=sys.stderr)
-        except ValueError:
-            manually_fixed_start_time = None
+    # if "_timefix_" in filename:
+    #     try:
+    #         manually_fixed_start_time = int(filename.split("_timefix_")[-1].split("_")[0])
+    #         print("Manually fixed start time:", manually_fixed_start_time, file=sys.stderr)
+    #     except ValueError:
+    #         manually_fixed_start_time = None
 
-    if "_sampling_" in filename:
-        try:
-            sampling_time = int(filename.split("_sampling_")[-1].split("_")[0])
-            print("Sampling time:", sampling_time, file=sys.stderr)
-            sampling_time_set = True
-        except ValueError:
-            sampling_time = None
+    # if "_sampling_" in filename:
+    #     try:
+    #         sampling_time = int(filename.split("_sampling_")[-1].split("_")[0])
+    #         print("Sampling time:", sampling_time, file=sys.stderr)
+    #         sampling_time_set = True
+    #     except ValueError:
+    #         sampling_time = None
     
-    if(sampling_time == None):
-        sampling_time = 20 # seconds
+    # if(sampling_time == None):
+    #     sampling_time = 20 # seconds
 
-    telemetry_size = 191
+    # MAIN_MAIN_TELEMETLY_SIZE = 191
 
-    previous_timestamp = None
-    line_count = 1
-    correction_delta = 0
+    # previous_timestamp = None
+    # line_count = 1
+    # correction_delta = 0
 
     parameters_array = []
 
-    with open(filename, "rb") as f:
-        # skip incomplete lines
-        line = f.read() # line is of type <class 'bytes'>
-        first_byte = ((line.find(b'\xb0\x0b') + 2) % telemetry_size)
-        f.seek(first_byte)
-        # Loop through all complete lines
-        line = f.read(telemetry_size) # line is of type <class 'bytes'>
+    chunks = [data[i:i+MAIN_TELEMETLY_SIZE] for i in range(0, len(data), MAIN_TELEMETLY_SIZE)]
+    for chunk in chunks:
+        if len(chunk) < 191:
+            continue
+        print(chunk[-2:])
+        if chunk[-2:] != b"\xb0\x0b":
+            continue
+        parameters= process_telemetry_chunk(chunk)
+        parameters_array.append(parameters)
 
-        while(len(line) == telemetry_size):
-            # process line here
-            # print(line.hex(), file=sys.stderr)
-
-            if (line.rfind(b'\xb0\x0b')== telemetry_size - 2):
-
-                [parameters, previous_timestamp, correction_delta, line_count] = process_telemetry_line(line, telemetry_size, manually_fixed_start_time, sampling_time, sampling_time_set, previous_timestamp, line_count, correction_delta)
-                parameters_array.append(parameters)
-
-            # get next line
-            else:
-                # print("Warning: Incomplete line at line", line_count + 1, file=sys.stderr)
-                # print(line.rfind(b'\xb0\x0b'), file=sys.stderr)
-                # print(line.hex())
-                if b'\xb0\x0b' in line:
-                    first_byte = ((line.find(b'\xb0\x0b') + 2) % telemetry_size)
-                    f.seek(first_byte,1)
-                else:
-                    f.seek(telemetry_size,1)
-            line = f.read(telemetry_size)
     return parameters_array
 
-def write_parameters_array(parameters_array, filename):
-    if ".hex" in filename:
-        filename = filename.replace(".hex", ".csv")
-    else:
-        filename += ".csv"
-    with open(filename, "w") as file:
-        if parameters_array:
-            file.write(",".join(parameters_array[0].keys()) + "\n")
+# def write_parameters_array(parameters_array, filename):
+#     if ".hex" in filename:
+#         filename = filename.replace(".hex", ".csv")
+#     else:
+#         filename += ".csv"
+#     with open(filename, "w") as file:
+#         if parameters_array:
+#             file.write(",".join(parameters_array[0].keys()) + "\n")
 
-        for parameters in parameters_array:
-            for key, value in parameters.items():
-                if isinstance(value, float):
-                    file.write(f"{value:.3f},")
-                else:
-                    file.write(f"{value},")
-            file.write("\n")  # Add a newline after each parameter set
-    return filename
+#         for parameters in parameters_array:
+#             for key, value in parameters.items():
+#                 if isinstance(value, float):
+#                     file.write(f"{value:.3f},")
+#                 else:
+#                     file.write(f"{value},")
+#             file.write("\n")  # Add a newline after each parameter set
+#     return filename
 
-def write_combined_csv(parameters_arrays, output_filename):
-    with open(output_filename, "w") as file:
-        if parameters_arrays:
-            # Write the header from the first non-empty parameters array
-            for parameters_array in parameters_arrays:
-                if parameters_array:
-                    file.write(",".join(parameters_array[0].keys()) + "\n")
-                    break
+# def write_combined_csv(parameters_arrays, output_filename):
+#     with open(output_filename, "w") as file:
+#         if parameters_arrays:
+#             # Write the header from the first non-empty parameters array
+#             for parameters_array in parameters_arrays:
+#                 if parameters_array:
+#                     file.write(",".join(parameters_array[0].keys()) + "\n")
+#                     break
 
-        for parameters_array in parameters_arrays:
-            for parameters in parameters_array:
-                for key, value in parameters.items():
-                    if isinstance(value, float):
-                        file.write(f"{value:.3f},")
-                    else:
-                        file.write(f"{value},")
-                file.write("\n")  # Add a newline after each parameter set
+#         for parameters_array in parameters_arrays:
+#             for parameters in parameters_array:
+#                 for key, value in parameters.items():
+#                     if isinstance(value, float):
+#                         file.write(f"{value:.3f},")
+#                     else:
+#                         file.write(f"{value},")
+#                 file.write("\n")  # Add a newline after each parameter set
 
-def process_file(filename):
-    print("Processing file:", filename, file=sys.stderr)
-    parameters_array = tlm_process(filename)
-    output_filename = write_parameters_array(parameters_array, filename)
-    print("Wrote file:", output_filename, file=sys.stderr)
-    return parameters_array
-
-# ======================== ここからポップアップ対応 ========================
-def main():
-    # Tkを隠してファイルダイアログだけ出す
-    root = tk.Tk()
-    root.withdraw()
-    root.update()
-
-    filepaths = filedialog.askopenfilenames(
-        title="HEXファイルを選択（複数可）",
-        filetypes=[("HEX files","*.hex"), ("All files","*.*")]
-    )
-
-    # 未選択なら終了
-    if not filepaths:
-        messagebox.showinfo("中止", "ファイルが選択されませんでした。処理を終了します。")
-        return
-
-    all_parameters_arrays = []
-    for packet_file in sorted(filepaths, key=os.path.basename):
-        params = process_file(packet_file)
-        all_parameters_arrays.append(params)
-
-    # 複数選択時はcombined_output.csvをCWDに出力
-    if len(filepaths) > 1:
-        combined_filename = os.path.join(os.getcwd(), "combined_output.csv")
-        write_combined_csv(all_parameters_arrays, combined_filename)
-        print("Wrote combined file:", combined_filename, file=sys.stderr)
-        messagebox.showinfo("完了", f"個別CSVとcombined_output.csvを作成しました。\n\n保存先:\n{os.getcwd()}")
-    else:
-        messagebox.showinfo("完了", "CSVの作成が完了しました。")
-
-if __name__ == "__main__":
-    main()
+# def process_file(filename):
+#     print("Processing file:", filename, file=sys.stderr)
+#     parameters_array = tlm_process(filename)
+#     output_filename = write_parameters_array(parameters_array, filename)
+#     print("Wrote file:", output_filename, file=sys.stderr)
+#     return parameters_array
