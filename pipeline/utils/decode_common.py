@@ -9,9 +9,27 @@ class DecoderConfig:
     decoder: callable
     output_name: str
     decode_unit: int
+    bin_offset_by_sync_code: callable
 
     def decode(self, bin_file: Path):
         return self.decoder(bin_file)
+
+def adcs_offset_bin(data: bytes) -> bytes:
+    SYNC_ADCS = b"\xCA\xFE"
+
+    pos = data.find(SYNC_ADCS)
+
+    if pos < 0:
+        return b""
+
+    offset = 36
+    start = max(0, pos - offset)
+
+    return data[start:]
+
+def no_offset(data):
+    return data 
+
 
 DECODER_REGISTRY = {
     "001": DecoderConfig(
@@ -19,18 +37,22 @@ DECODER_REGISTRY = {
         decoder=decoder_main_log.decode,
         output_name="obc_decoded.csv",
         decode_unit=7,
+        bin_offset_by_sync_code = no_offset,
     ),
     "011": DecoderConfig(
         filetype="011",
         decoder=decoder_adcs_HK.decode,
         output_name="adcs_High_HK_decoded.csv",
         decode_unit=1473,
+        bin_offset_by_sync_code = adcs_offset_bin,
+
     ),
     "100": DecoderConfig(
-        filetype="011",
+        filetype="100",
         decoder=decoder_adcs_HK.decode,
         output_name="adcs_Normal_HK_decoded.csv",
         decode_unit=1473,
+        bin_offset_by_sync_code = adcs_offset_bin,
     ),
     "110": DecoderConfig(
         filetype="110",
@@ -38,8 +60,10 @@ DECODER_REGISTRY = {
         # decoder=decoder_main_HK.decode,
         output_name="main_HK_decoded.csv",
         decode_unit=191,
+        bin_offset_by_sync_code = no_offset,
     ),
 }
+
 
 # def get_decode_config(bin_file: Path) -> DecoderConfig | None:
 #     filetype = _extract_filetype(bin_file)
@@ -53,12 +77,16 @@ def get_config_from_key(key: str) -> DecoderConfig | None:
     filetype = key[:3]
     return DECODER_REGISTRY.get(filetype)
 
-def decode_file(folder: Path, bin_file: Path) -> Path | None:
-    config = get_config_from_file(bin_file)
+def decode_file(folder: Path, bin_path: Path) -> Path | None:
+    config = get_config_from_file(bin_path)
 
     if config is None:
         return None
-    decoded = config.decoder(bin_file)
+    
+    with open(bin_path, 'rb') as f:
+        data = f.read()
+    data = config.bin_offset_by_sync_code(data)
+    decoded = config.decoder(data)
     out_folder = _replace_folder_name(folder)
     csv_path = out_folder / config.output_name
 

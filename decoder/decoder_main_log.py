@@ -90,13 +90,10 @@ def command_list(command):
 
 
 
-def decode(bin_file,):
+def decode(data):
 
     rows = []
-    with open(bin_file, "rb") as f:
-        bin_data = f.read()
-    # print(len(bin_data))
-    bin_data = bin_data[:]
+    bin_data = data[:]
     telemetry_size = 7
     offset = 0
     data_len = len(bin_data)

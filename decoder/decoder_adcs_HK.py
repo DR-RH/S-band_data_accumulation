@@ -91,34 +91,41 @@ def extract_and_decode(
             int_value >>= 8 - shift
             int_value &= (1 << (num_bytes*8))-1
             
-        try:
-            if fmt_raw == "T":
-                #Little EndianでUNIX時間を取得
-                unix_time = struct.unpack('<I', int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
-                
-                dt_object = datetime.fromtimestamp(unix_time)
-                results[name] = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                value = struct.unpack(format_str, int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
-                if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
-                    value = mask_lower_bits(value,fmt_raw)
-                results[name] = value*conversion_factor
+        raw_bytes = int_value.to_bytes(num_bytes, byteorder='big', signed=False)
 
-        except Exception as e:
-            print(f"{name}: Decode error: {e}")
-            results[name] = None
+        if fmt_raw == "T":
+
+            unix_time = struct.unpack('<I', raw_bytes)[0]
+            dt_object = datetime.fromtimestamp(unix_time)
+            results[name] = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            
+                value = struct.unpack(format_str, raw_bytes)[0]
+
+                if fmt_raw in {'1','2','3'}:
+                    value = mask_lower_bits(value, fmt_raw)
+
+                results[name] = value * conversion_factor
+        # try:
+        #     if fmt_raw == "T":
+        #         #Little EndianでUNIX時間を取得
+        #         unix_time = struct.unpack('<I', int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
+                
+        #         dt_object = datetime.fromtimestamp(unix_time)
+        #         results[name] = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        #     else:
+        #         value = struct.unpack(format_str, int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
+        #         if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
+        #             value = mask_lower_bits(value,fmt_raw)
+        #         results[name] = value*conversion_factor
+        # except Exception as e:
+        #     print(f"{name}: Decode error: {e}")
+        #     results[name] = None
 
 
     return results
 
-def decode(bin_path):
-
-    # # timestamp = 'before_copy_again_received_20251113_185025'
-    # sample_mode = "high"
-    # sample_mode_dict = {"high":"3392","normal":"9608"}
-    with open(bin_path, 'rb') as f:
-        data = f.read()
-    # print(data)
+def decode(data: bytes):
     decoded_list = []
     packet_nubmer = len(data)//1473
     for i in range(packet_nubmer):

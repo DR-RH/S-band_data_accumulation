@@ -15,7 +15,7 @@ def _break_packets(df):
 def concat_data(df: pd.DataFrame , save_datetime: str):
     order_key = 'Packet no.'
     df = df.sort_values(order_key)
-    df = _break_packets(df)
+    # df = _break_packets(df)
     concat_map = concat_payloads_by_key(
         df,
         # group_key="Packet ID",
