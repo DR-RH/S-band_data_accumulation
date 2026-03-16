@@ -4,3 +4,4 @@ tlm/**
 !tlm/**/
 !tlm/all_tlm_in_RX_COM_COM7_20260312_153552.txt
 /.venv
+app/__pycache__
