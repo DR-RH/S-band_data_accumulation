@@ -666,7 +666,7 @@ def decode(data:bytes):
     for chunk in chunks:
         if len(chunk) < 191:
             continue
-        print(chunk[-2:])
+        # print(chunk[-2:])
         if chunk[-2:] != b"\xb0\x0b":
             continue
         parameters= process_telemetry_chunk(chunk)

@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from pipeline.step5_decode.flow import run
+from pipeline.step5_decode.decode import run
 
 
 def test_run_collects_step4_files(tmp_path: Path):

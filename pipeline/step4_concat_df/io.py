@@ -60,6 +60,8 @@ def write_concat_binaries(
         with open(decodable_path, "wb") as f:
             f.write(binary_decodable)
 
+    return binary_decodable
+
 def extract_decodable_packet(
     binary,
     missing: list):

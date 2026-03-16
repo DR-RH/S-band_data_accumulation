@@ -22,11 +22,12 @@ def concat_data(df: pd.DataFrame , save_datetime: str):
         # data_column="Data",
     )
     out_dir = Path("data/intermediate_output") / save_datetime
-    write_concat_binaries(concat_map, out_dir)
+    binary_decodable = write_concat_binaries(concat_map, out_dir)
+    return out_dir
 
 def main(df: pd.DataFrame , save_datetime: str):
-    concat_data(df,save_datetime)
-    return 
+    out_dir = concat_data(df,save_datetime)
+    return out_dir
 
 if __name__ == "__main__":
     save_datetime = 'jpg4_received_20260129_110648'
