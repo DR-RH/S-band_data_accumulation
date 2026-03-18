@@ -1,0 +1,2 @@
+import pandas as pd
+AUTO_PACKET_ID = "0101011001000101"

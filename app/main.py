@@ -1,7 +1,8 @@
 from pipeline.step1_binarize.main import binarize
 from pipeline.step2_verify_crc.main import verify_crc
 from pipeline.step3_parse_into_df.main import parse_into_df
-from pipeline.step4_concat_df.main import concat_data
+# from pipeline.step4_concat_df.old_main import process_decodable_df
+from pipeline.decodable.process import process_decodable_df
 from pipeline.step5_decode import decode
 from pathlib import Path
 from glob import glob
@@ -35,8 +36,8 @@ def process_file(path: Path):
     valid_binary = verify_crc(binary, gse, file_name)
     df = parse_into_df(valid_binary, gse, file_name)
 
-    out_dir = concat_data(df, file_name)
-    print(out_dir)
+    out_dir = process_decodable_df(df, file_name)
+    
 
     # decode.run(out_dir)
 
