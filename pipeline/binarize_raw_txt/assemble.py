@@ -56,7 +56,7 @@ def hex_string_to_bytes(hex_str: str, strict: bool = False) -> bytes:
         raise DataIntegrityError(f"Conversion failed: {e}")
 
 def build_timestamp_injected_binary(
-    raw_text: str,
+    raw_log_text: str,
     timestamp_pattern: re.Pattern,
     strict_mode: bool = False
     ) -> bytes:
@@ -66,7 +66,7 @@ def build_timestamp_injected_binary(
     """
     
     try:
-        normalized = normalize_log_text(raw_text)
+        normalized = normalize_log_text(raw_log_text)
 
         segments = extract_timestamp_segments(
             normalized,

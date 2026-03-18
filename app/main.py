@@ -1,7 +1,6 @@
-from pipeline.step1_binarize.main import binarize
+from pipeline.binarize_raw_txt.binarize import build_timestamped_binary_from_log
 from pipeline.step2_verify_crc.main import verify_crc
 from pipeline.step3_parse_into_df.main import parse_into_df
-# from pipeline.step4_concat_df.old_main import process_decodable_df
 from pipeline.decodable.process import process_decodable_df
 from pipeline.step5_decode import decode
 from pathlib import Path
@@ -32,8 +31,9 @@ def process_file(path: Path):
 
     gse = get_ges_type(file_name)
 
-    binary = binarize(path, file_name)
-    valid_binary = verify_crc(binary, gse, file_name)
+    timestamped_binary = build_timestamped_binary_from_log(path)
+
+    valid_binary = verify_crc(timestamped_binary, gse, file_name)
     df = parse_into_df(valid_binary, gse, file_name)
 
     out_dir = process_decodable_df(df, file_name)

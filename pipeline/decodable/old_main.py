@@ -32,21 +32,21 @@ def process_decodable_df(df: pd.DataFrame, output_path: Path):
 
         process_packet_group(packet_id, group_info, output_path)
 """
-# def process_packet_group(packet_id, group_info, output_path: Path):
+def process_packet_group(packet_id, group_info, output_path: Path):
 
-#     group_df = group_info["df"]
-#     missing_packets = group_info["missing"]
+    group_df = group_info["df"]
+    missing_packets = group_info["missing"]
 
-#     data_type = packet_id[:3]
-#     decode_unit = get_decode_unit_from_key(data_type)
+    data_type = packet_id[:3]
+    decode_unit = get_decode_unit_from_key(data_type)
 
-#     decodable_df = build_decodable_df(
-#         group_df,
-#         missing_packets,
-#         decode_unit
-#     )
+    decodable_df = build_decodable_df(
+        group_df,
+        missing_packets,
+        decode_unit
+    )
 
-#     write_decodable_df(decodable_df, packet_id, output_path)
+    write_decodable_df(decodable_df, packet_id, output_path)
 """
 def build_decodable_df(
     df: pd.DataFrame,
