@@ -46,7 +46,7 @@ def main():
     os.makedirs(to_dir,exist_ok=True)
     for path in TLM_DIR.glob("*.txt"):
         process_file(path)
-        shutil.move(str(path), to_dir / path.name)
+        # shutil.move(str(path), to_dir / path.name)
 
 if __name__ == "__main__":
     main()
