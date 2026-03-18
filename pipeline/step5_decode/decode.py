@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 import logging
-from pipeline.utils.decode_common import decode_file
+from pipeline.utils.decode_common import decode_file, extract_decode_units_with_time
 
 
 # def _break_bin(bin_files):
@@ -31,12 +31,12 @@ def run(folder_name: str) -> List[Path]:
     if not folder.exists():
         raise FileNotFoundError(f"{folder} does not exist")
     bin_files = _collect_step4_files(folder)
-
+    decode_valid_chunks(df,)
     # bin_files = _break_bin(bin_files)
 
-    for bin_file in bin_files:
-        # print(bin_file)
-        decoded_data = decode_file(folder, bin_file)
+    # for bin_file in bin_files:
+    #     # print(bin_file)
+    #     decoded_data = decode_file(folder, bin_file)
     return decoded_data
 
 

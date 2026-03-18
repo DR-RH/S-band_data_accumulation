@@ -163,27 +163,120 @@ def _save_csv(csv_path: Path, data):
     print(f"saved {csv_path}")
 
 
-def fix_broken_bin(
-    data: bytes,
+def extract_decode_units_with_time(
+    # data: bytes,
+    df:pd.DataFrame,
     positions:list,
-    decode_byte_unit:int,
-    block: int = 116,
+    decode_unit:int,
+    packet_size: int = 116,
     ) -> bytes:
 
+    def align_down(x: int) -> int:
+        return (x // decode_unit) * decode_unit
+
+    def align_up(x: int) -> int:
+        return ((x + decode_unit - 1) // decode_unit) * decode_unit
+    
+    buffer = b""
+    time_buffer = []
+    results = []
+    current_size = 0
+    for _, row in df.iterrows():
+        packet = row["Data"]
+        ts = row["Datetime"]
+        buffer += packet
+        time_buffer.append(ts)
+        current_size += len(packet)
+    
+        while current_size >= decode_unit:
+            chunk = buffer[:decode_unit]
+             # 代表時刻（先頭パケット）
+            chunk_time = time_buffer[0]
+            results.append({
+                "datetime": chunk_time,
+                "data": chunk
+            })
+            # 消費
+            buffer = buffer[decode_unit:]
+            current_size -= decode_unit
+
+            # packet境界でtime_bufferも更新
+            consumed = decode_unit // packet_size
+            time_buffer = time_buffer[consumed:]
+
+
+    return pd.DataFrame(results)
+
+def decode_valid_chunks(
+    df: pd.DataFrame,
+    decode_unit: int,
+    packet_size: int = 116
+):
+    buffer = b""
+    time_buffer = []
+    loss_buffer = []
+
+    results = []
+
+    for _, row in df.iterrows():
+        buffer += row["Data"]
+        time_buffer.append(row["Datetime"])
+        loss_buffer.append(row["IsLoss"])
+
+        while len(buffer) >= decode_unit:
+            chunk = buffer[:decode_unit]
+
+            # このchunkに含まれるpacket数
+            pkt_count = decode_unit // packet_size
+
+            if not any(loss_buffer[:pkt_count]):
+                results.append({
+                    "Datetime": time_buffer[0],
+                    "Data": chunk
+                })
+
+            buffer = buffer[decode_unit:]
+            time_buffer = time_buffer[pkt_count:]
+            loss_buffer = loss_buffer[pkt_count:]
+
+    return pd.DataFrame(results)
+
+def fix_broken_bin(
+    data: bytes,
+    loss_positions: list[int],
+    decode_unit: int,
+    packet_size: int = 116,
+) -> bytes:
+
+    def align_down(x: int) -> int:
+        return (x // decode_unit) * decode_unit
+
+    def align_up(x: int) -> int:
+        return ((x + decode_unit - 1) // decode_unit) * decode_unit
+
     chunks = []
-    cut_off_start = 0
-    for position in sorted(positions):
-        loss_start = block * position
+    cursor = 0
+
+    for pos in sorted(loss_positions):
+        loss_start = pos * packet_size
+
         if loss_start >= len(data):
             break
-        cut_off_end = (loss_start // decode_byte_unit) * decode_byte_unit
-        chunks.append(data[cut_off_start:cut_off_end])
-        cut_off_start = (((position + 1) * block - 1) // decode_byte_unit + 1) * decode_byte_unit 
-    chunks.append(data[cut_off_start:])
-    decodable_data = b"".join(chunks)
-    return decodable_data
 
+        # デコード単位で切り捨て
+        safe_end = align_down(loss_start)
 
+        if cursor < safe_end:
+            chunks.append(data[cursor:safe_end])
+
+        # 壊れたパケットをスキップ（decode単位で切り上げ）
+        loss_end = (pos + 1) * packet_size
+        cursor = align_up(loss_end)
+
+    if cursor < len(data):
+        chunks.append(data[cursor:])
+
+    return b"".join(chunks)
 # def get_decode_unit(bin_file):
 #     entry = select_decoder(bin_file)
 

@@ -38,7 +38,7 @@ def process_file(path: Path):
     out_dir = concat_data(df, file_name)
     print(out_dir)
 
-    decode.run(out_dir)
+    # decode.run(out_dir)
 
 
 def main():

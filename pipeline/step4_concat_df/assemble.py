@@ -1,13 +1,23 @@
 from typing import Dict
 import pandas as pd
+# from .io import write_df
+from pathlib import Path
+FILL_VALUE = b'\xFF'
+DUMMY_DATETIME = pd.Timestamp("2030-01-01")
 AUTO_PACKET_ID = "0101011001000101"
 
-def insert_missing_packets(group, missing):
+# Archive
+def insert_missing_packets(group: pd.DataFrame, missing):
     block = 116
+
     new_rows = pd.DataFrame({
         "Packet no.": missing,
-        "Data": [b'\xFF' * block] * len(missing)
+        "Data": [FILL_VALUE * block for _ in range(len(missing))],
+        "Datetime": [DUMMY_DATETIME for _ in range(len(missing))]
     })
+
+    # 列構造を揃える（FutureWarning対策）
+    new_rows = new_rows.reindex(columns=group.columns)
 
     group = pd.concat([group, new_rows], ignore_index=True)
 
@@ -15,38 +25,19 @@ def insert_missing_packets(group, missing):
 
     return group
 
-def concat_payloads_by_key(
-    df: pd.DataFrame,
-    # group_key: str,
-    # data_column: str,
-    ) -> Dict[int, bytes]:
-    """
-    Group dataframe by group_key and concat bytes in data_column.
-    """
-
-    group_key="Packet ID"
-    data_column="Data"
+def detect_missing_packet(df: pd.DataFrame):
+    group_key = "Packet ID"
     result = {}
 
     for key, group in df.groupby(group_key, sort=True):
         group = group.sort_values("Packet no.")
-        payloads = group[data_column]
+
         missing = []
-
-        if not all(isinstance(x, (bytes, bytearray)) for x in payloads):
-            raise TypeError("data_column must contain bytes")
-
-        if  key != AUTO_PACKET_ID:
+        if key != AUTO_PACKET_ID:
             missing = get_missing_packets(group)
-            group = insert_missing_packets(group, missing)
-            group = group.sort_values("Packet no.")
-            # payload = b"".join(group[data_column])
-        #     decode_byte_unit = get_decode_unit_from_key(key)
-        #     payload = _fix_broken_bin(payload,missing,decode_byte_unit)
-        # else:
-        payload = b"".join(group[data_column])
+
         result[key] = {
-            "payload": payload,
+            "df": group,
             "missing": missing
         }
 

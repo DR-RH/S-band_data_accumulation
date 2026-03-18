@@ -4,6 +4,7 @@ from pipeline.utils.decode_common import fix_broken_bin
 from pipeline.utils.decode_common import get_decode_unit_from_key
 import time
 from datetime import datetime
+import pandas as pd
 DATATYPE = {
     "000": "unassigned",
     "001": "main_exe_log",
@@ -29,6 +30,24 @@ def get_filename_time(id_time):
     filename_time = dt.strftime("%Y-%m-%d_%H%M")
     return filename_time
 
+def write_df(df:pd.DataFrame,
+            key:str,
+            out_dir:Path):
+
+    id_type, id_time = key[:3], key[3:]
+    filename_time = get_filename_time(id_time)
+
+    csv = out_dir/ f"step4_concat_data_ID_{id_type}_{key}_{filename_time}.csv"
+    df.to_csv(csv)
+    return
+
+def write_decodable_df(df:pd.DataFrame,key:str,save_datetime):
+    id_type, id_time = key[:3], key[3:]
+    data_type = DATATYPE[id_type]
+    filename_time = get_filename_time(id_time)
+    prefix = f"data/intermediate_output/step4_concat_data_ID_{id_type}_{data_type}_{filename_time}.csv"
+    df.to_csv(prefix)
+
 def write_concat_binaries(
     data_map: Dict[int, Dict],
     out_dir: Path,
@@ -43,8 +62,8 @@ def write_concat_binaries(
         
         filename_time = get_filename_time(id_time)
 
-        decode_byte_unit = get_decode_unit_from_key(key)
-        binary_decodable = fix_broken_bin(binary, missing,decode_byte_unit)
+        decode_unit = get_decode_unit_from_key(key)
+        binary_decodable = fix_broken_bin(binary, missing,decode_unit)
 
         prefix = f"step4_concat_data_ID_{id_type}_{data_type}_{filename_time}"
         raw_path = out_dir / f"{prefix}_raw_filled.bin"
