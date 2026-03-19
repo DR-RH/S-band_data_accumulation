@@ -23,7 +23,6 @@ def extract_timestamp_segments(
 
         ts_str = match.group()
         ts_dt = datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc)
-
         segment = compact[start:end].lstrip("-")
 
         segments.append((ts_dt, segment))

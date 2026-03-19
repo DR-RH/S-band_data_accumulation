@@ -32,30 +32,10 @@ def test_contains_expected_header():
 
 def test_exact_binary_small_case():
     raw = "2026-03-11T15:37:35.783567 - 00FAF3207B00"
-    
-    # 実際の関数呼び出し
+
     result = build_timestamp_injected_binary(raw, TIMESTAMP_PATTERN)
 
-    # expected を計算で生成
-    expected = generate_expected_binary(raw, header_bytes=4)  # 3バイトをヘッダと仮定
+    # # # 完全固定（事前に手計算）
+    expected = b'\x00\xfa\xf3 \x00\x06L\xc1jHB\x8f{\x00'
 
-    # 比較
     assert result == expected
-def generate_expected_binary(raw: str, header_bytes: int) -> bytes:
-    """
-    raw: "YYYY-MM-DDTHH:MM:SS.micro - PAYLOAD_HEX"
-    header_bytes: PAYLOAD_HEX の何バイトまでをヘッダとみなすか
-    """
-
-    # 分割
-    time_str, hex_payload = raw.split(" - ")
-    payload = bytes.fromhex(hex_payload)
-
-    # UTC変換
-    ts_dt = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
-    ts_us = int(ts_dt.timestamp() * 1_000_000 + 0.5)  # 丸め補正
-    ts_bytes = ts_us.to_bytes(8, "big")
-
-    # 挿入位置
-    expected = payload[:header_bytes] + ts_bytes + payload[header_bytes:]
-    return expected
