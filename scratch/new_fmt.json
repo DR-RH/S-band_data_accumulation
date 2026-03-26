@@ -1,0 +1,606 @@
+{
+    "reset pic": {
+        "group": "reset pic",
+        "byte_order": ">",
+        "fields": [
+            {
+                "name": "timestamp_reset",
+                "start_byte": 1,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "year",
+                "start_byte": 2,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "month",
+                "start_byte": 3,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "day",
+                "start_byte": 4,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "hour",
+                "start_byte": 5,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "minute",
+                "start_byte": 6,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "second",
+                "start_byte": 7,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_raw_power",
+                "start_byte": 8,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_3v3_1",
+                "start_byte": 10,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_3v3_2",
+                "start_byte": 12,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_5v0",
+                "start_byte": 14,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_unreg1",
+                "start_byte": 16,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_unreg2",
+                "start_byte": 18,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_unreg3",
+                "start_byte": 20,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_12v",
+                "start_byte": 22,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "power_line_status",
+                "start_byte": 24,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "status_main_pic",
+                "start_byte": 25,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    },
+    "eps pic": {
+        "group": "eps pic",
+        "byte_order": ">",
+        "fields": [
+            {
+                "name": "timestamp_fab",
+                "start_byte": 26,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_minus_y",
+                "start_byte": 27,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_plus_x",
+                "start_byte": 29,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_minus_x",
+                "start_byte": 31,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_dsap_plus_x",
+                "start_byte": 33,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_dsap_minus_x",
+                "start_byte": 35,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_plus_y",
+                "start_byte": 37,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_bpb",
+                "start_byte": 39,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "no_data_1",
+                "start_byte": 41,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "no_data_2",
+                "start_byte": 43,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "no_data_3",
+                "start_byte": 45,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_BCR_1",
+                "start_byte": 47,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_BCR_2",
+                "start_byte": 49,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_BCR_3",
+                "start_byte": 51,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_minus_y",
+                "start_byte": 53,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_dsap_plus_x_3s3p",
+                "start_byte": 55,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_dsap_plus_x_3s2p",
+                "start_byte": 57,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_dsap_minus_x_3s2p",
+                "start_byte": 59,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_dsap_minus_x_3s3p",
+                "start_byte": 61,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_bm_plus_x",
+                "start_byte": 63,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_bm_minus_x",
+                "start_byte": 65,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_heater",
+                "start_byte": 67,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_raw",
+                "start_byte": 69,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_battery",
+                "start_byte": 71,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_raw",
+                "start_byte": 73,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "current_battery",
+                "start_byte": 75,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_battery",
+                "start_byte": 77,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "heater_status",
+                "start_byte": 79,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "kill_switch_status",
+                "start_byte": 80,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_heater_ref",
+                "start_byte": 81,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "voltage_heater_ref",
+                "start_byte": 83,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    },
+    "relay pic": {
+        "group": "relay pic",
+        "byte_order": "<",
+        "fields": [
+            {
+                "name": "timestamp_pcib",
+                "start_byte": 85,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_pl_1",
+                "start_byte": 86,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_pl_2",
+                "start_byte": 88,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_pl_3",
+                "start_byte": 90,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "payload_heater_status",
+                "start_byte": 92,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "payload_heater_sensor_config",
+                "start_byte": 93,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "status_tk_px",
+                "start_byte": 94,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "status_tk_mx",
+                "start_byte": 95,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    },
+    "adcs pic": {
+        "group": "adcs pic",
+        "byte_order": "<",
+        "fields": [
+            {
+                "name": "timestamp_adcs",
+                "start_byte": 96,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    },
+    "com pic": {
+        "group": "com pic",
+        "byte_order": "<",
+        "fields": [
+            {
+                "name": "timestamp_com",
+                "start_byte": 170,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "operation_mode",
+                "start_byte": 171,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "bitrate_setting",
+                "start_byte": 172,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "test_mode",
+                "start_byte": 173,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "temp_stx",
+                "start_byte": 174,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "sband_rx_rssi",
+                "start_byte": 176,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "freq_err",
+                "start_byte": 178,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    },
+    "OBC pic": {
+        "group": "OBC pic",
+        "byte_order": "<",
+        "fields": [
+            {
+                "name": "number_scheduled_command_legacy",
+                "start_byte": 180,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "number_scheduled_command_flash",
+                "start_byte": 181,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "obc_mode",
+                "start_byte": 182,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "subsystem_communication",
+                "start_byte": 183,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "status_ocp",
+                "start_byte": 184,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "hours_after_reset",
+                "start_byte": 185,
+                "shift_bit": 0,
+                "bit_width": 8,
+                "scale": 1,
+                "status_strings": null
+            },
+            {
+                "name": "timestamp_obc",
+                "start_byte": 186,
+                "shift_bit": 0,
+                "bit_width": 32,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
+    }
+}
