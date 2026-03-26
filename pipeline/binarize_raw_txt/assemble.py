@@ -18,42 +18,56 @@ def validate_hex_string(hex_str: str) -> None:
     """
     if not re.fullmatch(r"^[0-9A-Fa-f]*$", hex_str):
         raise DataIntegrityError("Hex string contains invalid characters.")
-
+    
 def hex_string_to_bytes(hex_str: str, strict: bool = False) -> bytes:
-    """
-    Convert hex string to bytes.
-    
-    Args:
-        hex_str: Hexadecimal string to convert.
-        strict: If True, raise error on odd length. If False, pad with 'F' and log warning.
-    
-    Raises:
-        DataIntegrityError: If validation fails or strict mode is violated.
-    """
-    # 基本的な形式チェック
-    try:
-        validate_hex_string(hex_str)
-    except DataIntegrityError as e:
-        logger.error(f"Invalid hex string detected: {str(e)}")
-        raise
+    validate_hex_string(hex_str)
 
-    # 長さチェックと処理
     if len(hex_str) % 2 != 0:
-        msg = f"Odd length hex string detected (len={len(hex_str)}). Potential data corruption."
-        
         if strict:
-            logger.error(msg)
-            raise DataIntegrityError(msg)
-        else:
-            logger.warning(f"{msg} Padding with 'F' to proceed.")
-            hex_str += "F"
-            
+            raise DataIntegrityError(
+                f"Odd length hex string (len={len(hex_str)})"
+            )
+        hex_str += "F"
+
     try:
         return bytes.fromhex(hex_str)
     except ValueError as e:
-        # validate_hex_stringを通過していればここには来ないはずだが、念のため
-        logger.critical(f"Unexpected conversion error: {e}")
-        raise DataIntegrityError(f"Conversion failed: {e}")
+        raise DataIntegrityError(f"Conversion failed: {e}") from e
+# def hex_string_to_bytes(hex_str: str, strict: bool = False) -> bytes:
+#     """
+#     Convert hex string to bytes.
+    
+#     Args:
+#         hex_str: Hexadecimal string to convert.
+#         strict: If True, raise error on odd length. If False, pad with 'F' and log warning.
+    
+#     Raises:
+#         DataIntegrityError: If validation fails or strict mode is violated.
+#     """
+#     # 基本的な形式チェック
+#     try:
+#         validate_hex_string(hex_str)
+#     except DataIntegrityError as e:
+#         logger.error(f"Invalid hex string detected: {str(e)}")
+#         raise
+
+#     # 長さチェックと処理
+#     if len(hex_str) % 2 != 0:
+#         msg = f"Odd length hex string detected (len={len(hex_str)}). Potential data corruption."
+        
+#         if strict:
+#             logger.error(msg)
+#             raise DataIntegrityError(msg)
+#         else:
+#             logger.warning(f"{msg} Padding with 'F' to proceed.")
+#             hex_str += "F"
+            
+#     try:
+#         return bytes.fromhex(hex_str)
+#     except ValueError as e:
+#         # validate_hex_stringを通過していればここには来ないはずだが、念のため
+#         logger.critical(f"Unexpected conversion error: {e}")
+#         raise DataIntegrityError(f"Conversion failed: {e}")
 
 def build_timestamp_injected_binary(
     raw_log_text: str,
@@ -90,8 +104,13 @@ def build_timestamp_injected_binary(
             injected_segments.append(injected)
 
         hex_stream = "".join(injected_segments)
-        
-        return hex_string_to_bytes(hex_stream, strict=strict_mode)
+        try:
+            data = hex_string_to_bytes(hex_stream, strict=strict_mode) 
+        except DataIntegrityError as e:
+            logger.error(f"hex conversion failed: {e}")
+            raise
+
+        return data
         
     except Exception as e:
         logger.exception("Failed to build binary stream.")

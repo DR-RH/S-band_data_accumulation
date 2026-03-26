@@ -24,10 +24,12 @@ def build_decodable_df(
 
         while len(buffer) >= decode_unit:
             chunk = buffer[:decode_unit]
+            # print(type(chunk))
+            # print(chunk.hex())
 
             results.append({
                 "Datetime": ts,
-                "Data": chunk
+                "Data": chunk.hex()
             })
 
             buffer = buffer[decode_unit:]
