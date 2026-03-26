@@ -14,8 +14,8 @@ def process_decodable_df(input_df: pd.DataFrame, output_path: Path):
     packet_order_key = "Packet no."
 
     ordered_df = input_df.sort_values(packet_order_key)
-    sampled_df = _break_packets(ordered_df)  # debug用途
-
+    # sampled_df = _break_packets(ordered_df)  # debug用途
+    sampled_df = ordered_df
     packet_groups = detect_missing_packet(sampled_df)
 
     for packet_id, packet_bundle in packet_groups.items():

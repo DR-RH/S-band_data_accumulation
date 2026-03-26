@@ -1,0 +1,735 @@
+[
+  {
+    "name": "3V3 status",
+    "start_byte": 1,
+    "shift_bit": 0,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "OFF",
+      "ON"
+    ]
+  },
+  {
+    "name": "12V low power status",
+    "start_byte": 1,
+    "shift_bit": 1,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "OFF",
+      "ON"
+    ]
+  },
+  {
+    "name": "12V high power status",
+    "start_byte": 1,
+    "shift_bit": 2,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "OFF",
+      "ON"
+    ]
+  },
+  {
+    "name": "12VH current",
+    "start_byte": 1,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "12VL current",
+    "start_byte": 2,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "Boot Relay Status",
+    "start_byte": 3,
+    "shift_bit": 3,
+    "bit_width": 2,
+    "scale": 1,
+    "status_strings": [
+      "Redundant",
+      "ILLEGAL",
+      "ILLEGAL",
+      "Primary"
+    ]
+  },
+  {
+    "name": "Watchdog Reset Enable Status",
+    "start_byte": 3,
+    "shift_bit": 5,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Disabled",
+      "Enabled"
+    ]
+  },
+  {
+    "name": "Watchdog Reset Event Status",
+    "start_byte": 3,
+    "shift_bit": 6,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "No Reset",
+      "Reset Occurred"
+    ]
+  },
+  {
+    "name": "Processor reset arm status",
+    "start_byte": 3,
+    "shift_bit": 7,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Not Armed",
+      "Armed"
+    ]
+  },
+  {
+    "name": "TAI_SECONDS",
+    "start_byte": 4,
+    "shift_bit": 0,
+    "bit_width": 32,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "GPS_VALID",
+    "start_byte": 8,
+    "shift_bit": 0,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "REFS_VALID",
+    "start_byte": 8,
+    "shift_bit": 1,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "EARTH_PENUMBRA_UMBRA",
+    "start_byte": 8,
+    "shift_bit": 2,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "MAG_SOURCE_USED",
+    "start_byte": 8,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "ATT_STATUS",
+    "start_byte": 9,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": [
+      "OK",
+      "PENDING",
+      "BAD",
+      "TOO_FEW_STARS",
+      "QUEST_FAILED",
+      "RESIDUALS_TOO_HIGH",
+      "TOO_CLOSE_TO_EDGE",
+      "PIX_AMP_TOO_LOW",
+      "PIX_AMP_TOO_HIGH",
+      "BACKGND_TOO_HIGH",
+      "TRACK_FAILURE",
+      "PIX_SUM_TOO_LOW",
+      "UNUSED",
+      "TOO_DIM_FOR_STARID",
+      "TOO_MANY_GROUPS",
+      "TOO_FEW_GROUPS",
+      "CHANNEL_DISABLED",
+      "TRACK_BLK_OVERLAP",
+      "OK_FOR_STARID",
+      "TOO_CLOSE_TO_OTHER"
+    ]
+  },
+  {
+    "name": "ID_STATUS",
+    "start_byte": 10,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": [
+      "IDLE",
+      "INITIALIZE",
+      "WAITING_FOR_IMAGE1",
+      "WAITING_FOR_IMAGE2",
+      "CALUCLATE_RATE",
+      "MAKE_UNIT_VECTORS",
+      "AWAITING_TRISTAR",
+      "OK_Found_4",
+      "OK_Found_3",
+      "TIMEOUT",
+      "ILLEGAL",
+      "NO_MATCH"
+    ]
+  },
+  {
+    "name": "NUM_ATTITUDE_STARS",
+    "start_byte": 11,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "INERTIA_INDEX",
+    "start_byte": 12,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "SUN_POINT_STATE",
+    "start_byte": 13,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": [
+      "SUN_POINT",
+      "FINE_REF_POINT",
+      "SEARCH_INIT",
+      "SEARCHING",
+      "WAITING",
+      "CONVERGING",
+      "ON_SUN",
+      "NOT_ACTIVE"
+    ]
+  },
+  {
+    "name": "CMD_ACCEPT_COUNT",
+    "start_byte": 14,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "CMD_REJECT_COUNT",
+    "start_byte": 15,
+    "shift_bit": 3,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "POSITION_WRT_ECI_1",
+    "start_byte": 16,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "POSITION_WRT_ECI_2",
+    "start_byte": 18,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "POSITION_WRT_ECI_3",
+    "start_byte": 20,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "VELOCITY_WRT_ECI_1",
+    "start_byte": 22,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 0.0009765625,
+    "status_strings": null
+  },
+  {
+    "name": "VELOCITY_WRT_ECI_2",
+    "start_byte": 24,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 0.0009765625,
+    "status_strings": null
+  },
+  {
+    "name": "VELOCITY_WRT_ECI_3",
+    "start_byte": 26,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 0.0009765625,
+    "status_strings": null
+  },
+  {
+    "name": "MAG_MODEL_VECTOR_BODY_1",
+    "start_byte": 28,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 5e-09,
+    "status_strings": null
+  },
+  {
+    "name": "MAG_MODEL_VECTOR_BODY_2",
+    "start_byte": 30,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 5e-09,
+    "status_strings": null
+  },
+  {
+    "name": "MAG_MODEL_VECTOR_BODY_3",
+    "start_byte": 32,
+    "shift_bit": 3,
+    "bit_width": 16,
+    "scale": 5e-09,
+    "status_strings": null
+  },
+  {
+    "name": "MAG_POWER_STATE",
+    "start_byte": 34,
+    "shift_bit": 3,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "OFF",
+      "ON"
+    ]
+  },
+  {
+    "name": "MAG_VECTOR_VALID",
+    "start_byte": 34,
+    "shift_bit": 4,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "MAG_VECTOR_ENABLED",
+    "start_byte": 34,
+    "shift_bit": 5,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "MAG_TEST_MODE",
+    "start_byte": 34,
+    "shift_bit": 6,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "MAG_SENSOR_USED",
+    "start_byte": 34,
+    "shift_bit": 7,
+    "bit_width": 3,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "SUN_VECTOR_BODY_1",
+    "start_byte": 35,
+    "shift_bit": 2,
+    "bit_width": 16,
+    "scale": 0.0001,
+    "status_strings": null
+  },
+  {
+    "name": "SUN_VECTOR_BODY_2",
+    "start_byte": 37,
+    "shift_bit": 2,
+    "bit_width": 16,
+    "scale": 0.0001,
+    "status_strings": null
+  },
+  {
+    "name": "SUN_VECTOR_BODY_3",
+    "start_byte": 39,
+    "shift_bit": 2,
+    "bit_width": 16,
+    "scale": 0.0001,
+    "status_strings": null
+  },
+  {
+    "name": "CSS_POWER_STATE",
+    "start_byte": 41,
+    "shift_bit": 2,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "OFF",
+      "ON"
+    ]
+  },
+  {
+    "name": "MEAS_SUN_VALID",
+    "start_byte": 41,
+    "shift_bit": 3,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "SUN_VECTOR_ENABLED",
+    "start_byte": 41,
+    "shift_bit": 4,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "CSS_TEST_MODE",
+    "start_byte": 41,
+    "shift_bit": 5,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "SUN_SENSOR_USED",
+    "start_byte": 41,
+    "shift_bit": 6,
+    "bit_width": 3,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "Q_BODY_WRT_ECI_1",
+    "start_byte": 42,
+    "shift_bit": 1,
+    "bit_width": 16,
+    "scale": 3.2768e-05,
+    "status_strings": null
+  },
+  {
+    "name": "Q_BODY_WRT_ECI_2",
+    "start_byte": 44,
+    "shift_bit": 1,
+    "bit_width": 16,
+    "scale": 3.2768e-05,
+    "status_strings": null
+  },
+  {
+    "name": "Q_BODY_WRT_ECI_3",
+    "start_byte": 46,
+    "shift_bit": 1,
+    "bit_width": 16,
+    "scale": 3.2768e-05,
+    "status_strings": null
+  },
+  {
+    "name": "Q_BODY_WRT_ECI_4",
+    "start_byte": 48,
+    "shift_bit": 1,
+    "bit_width": 16,
+    "scale": 3.2768e-05,
+    "status_strings": null
+  },
+  {
+    "name": "ATTITUDE_VALID",
+    "start_byte": 50,
+    "shift_bit": 1,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "MEAS_ATT_VALID",
+    "start_byte": 50,
+    "shift_bit": 2,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "MEAS_RATE_VALID",
+    "start_byte": 50,
+    "shift_bit": 3,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "IMU_DATA_VALID",
+    "start_byte": 50,
+    "shift_bit": 4,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "TRACKER_1DATA_VALID",
+    "start_byte": 50,
+    "shift_bit": 5,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "Invalid",
+      "Valid"
+    ]
+  },
+  {
+    "name": "BODY_RATE_1",
+    "start_byte": 50,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 0.00032768,
+    "status_strings": null
+  },
+  {
+    "name": "BODY_RATE_2",
+    "start_byte": 52,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 0.00032768,
+    "status_strings": null
+  },
+  {
+    "name": "BODY_RATE_3",
+    "start_byte": 54,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 0.00032768,
+    "status_strings": null
+  },
+  {
+    "name": "OPERATING_MODE_1",
+    "start_byte": 56,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "OPERATING_MODE_2",
+    "start_byte": 57,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "OPERATING_MODE_3",
+    "start_byte": 58,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1,
+    "status_strings": null
+  },
+  {
+    "name": "FILTERED_SPEED_RPM_1",
+    "start_byte": 59,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 131.072,
+    "status_strings": null
+  },
+  {
+    "name": "FILTERED_SPEED_RPM_2",
+    "start_byte": 61,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 131.072,
+    "status_strings": null
+  },
+  {
+    "name": "FILTERED_SPEED_RPM_3",
+    "start_byte": 63,
+    "shift_bit": 6,
+    "bit_width": 16,
+    "scale": 131.072,
+    "status_strings": null
+  },
+  {
+    "name": "MOTOR_1TEMP",
+    "start_byte": 65,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1.28,
+    "status_strings": null
+  },
+  {
+    "name": "MOTOR_2TEMP",
+    "start_byte": 66,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1.28,
+    "status_strings": null
+  },
+  {
+    "name": "MOTOR_3TEMP",
+    "start_byte": 67,
+    "shift_bit": 6,
+    "bit_width": 8,
+    "scale": 1.28,
+    "status_strings": null
+  },
+  {
+    "name": "ADCS_MODE",
+    "start_byte": 68,
+    "shift_bit": 6,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "SUN_POINT",
+      "FINE_REF_POINT"
+    ]
+  },
+  {
+    "name": "RECOMMEND_SUN_POINT",
+    "start_byte": 68,
+    "shift_bit": 7,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "SUN_POINT_REASON",
+    "start_byte": 69,
+    "shift_bit": 0,
+    "bit_width": 3,
+    "scale": 1,
+    "status_strings": [
+      "BOOT",
+      "COMMAND",
+      "ATTITUDE_INVALID",
+      "TIME_INVALID",
+      "REFS_INVALID"
+    ]
+  },
+  {
+    "name": "ATT_CTRL_ACTIVE",
+    "start_byte": 69,
+    "shift_bit": 3,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "MOMENTUM_TOO_HIGH",
+    "start_byte": 69,
+    "shift_bit": 4,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "ON_SUN_FLAG",
+    "start_byte": 69,
+    "shift_bit": 5,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "SUN_AVOID_FLAG",
+    "start_byte": 69,
+    "shift_bit": 6,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "SUN_SOURCE_FAILOVER",
+    "start_byte": 69,
+    "shift_bit": 7,
+    "bit_width": 1,
+    "scale": 1,
+    "status_strings": [
+      "NO",
+      "YES"
+    ]
+  },
+  {
+    "name": "SUN_POINT_ANGLE_ERROR",
+    "start_byte": 70,
+    "shift_bit": 0,
+    "bit_width": 16,
+    "scale": 0.003,
+    "status_strings": null
+  },
+  {
+    "name": "EIGEN_ERROR",
+    "start_byte": 72,
+    "shift_bit": 0,
+    "bit_width": 16,
+    "scale": 0.0009765625,
+    "status_strings": null
+  }
+]

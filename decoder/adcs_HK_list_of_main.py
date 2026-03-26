@@ -89,7 +89,7 @@ STA_SUNPOINT_REASON = (
     "REFS_INVALID"
 )
 
-# name, sbyte, shift, fmt, scale, status_strings
+# name, start_byte, bit_shift, fmt,  scale, status_strings
 
 adcs_HK_list = [
     ["3V3 status",1,0,"1",1,STA_OFFON],

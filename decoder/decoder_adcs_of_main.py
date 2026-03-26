@@ -83,11 +83,11 @@ def extract_and_decode(
         # if name == "CMD_ACCEPT_COUNT":
         #     print(segment)
         int_value = int.from_bytes(segment, byteorder='big',signed=False)
-        if shift >= 0:
-            if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
-                int_value >>= 8-int(fmt_raw) 
-            int_value >>= 8 - shift
-            int_value &= (1 << (num_bytes*8))-1
+        # if shift >= 0:
+        if fmt_raw == '1' or fmt_raw == '2'or fmt_raw == '3':
+            int_value >>= 8-int(fmt_raw) 
+        int_value >>= 8 - shift
+        int_value &= (1 << (num_bytes*8))-1
             
         try:
             value = struct.unpack(format_str, int_value.to_bytes(num_bytes, byteorder='big',signed=False))[0]
