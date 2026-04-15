@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 import logging
-from pipeline.utils.decode_common import decode_file, extract_decode_units_with_time
+from pipeline.utils.decode_common import decode_file, extract_decode_units_with_time, decode_valid_chunks
 
 
 # def _break_bin(bin_files):
@@ -26,6 +26,7 @@ def run(folder_name: str) -> List[Path]:
     """
     logger = logging.getLogger(__name__)
 
+    print(folder_name)
     folder = Path(folder_name)
     logger.debug("folders=%s", folder)
     if not folder.exists():

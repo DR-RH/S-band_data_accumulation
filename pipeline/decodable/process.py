@@ -4,8 +4,7 @@ from pipeline.decodable.missing import detect_missing_packet
 from pipeline.decodable.constants import AUTO_PACKET_ID
 from pipeline.decodable.debug import _break_packets
 from pipeline.decodable.io import write_decodable_df
-from pipeline.utils.decode_common import get_decode_unit_from_key
-
+from pipeline.utils.decode_common import get_decode_unit_from_key, DECODER_REGISTRY
 import pandas as pd
 from pathlib import Path
 
@@ -33,12 +32,14 @@ def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
     missing_packets = packet_bundle["missing"]
 
     data_type = extract_data_type(packet_id)
-    decode_unit = get_decode_unit_from_key(data_type)
+    config = DECODER_REGISTRY.get(data_type)
+    # decode_unit = get_decode_unit_from_key(data_type)
+    # data_offset_by_sync_code()
 
     decodable_df = build_decodable_df(
         packet_df,
         missing_packets,
-        decode_unit
+        config
     )
     return decodable_df
 

@@ -1335,5 +1335,19 @@
                 "status_strings": null
             }
         ]
+    },
+    "sync_code": {
+        "group": "OBC pic",
+        "byte_order": ">",
+        "fields": [
+            {
+                "name": "sync_code",
+                "start_byte": 190,
+                "shift_bit": 0,
+                "bit_width": 16,
+                "scale": 1,
+                "status_strings": null
+            }
+        ]
     }
 }

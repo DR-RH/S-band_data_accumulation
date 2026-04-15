@@ -3,7 +3,9 @@ import pandas as pd
 def build_decodable_df(
     df: pd.DataFrame,
     missing: list[int],
-    decode_unit: int,
+    config,
+    # decode_unit: int,
+    # sync_code:bytes,
 ) -> pd.DataFrame:
 
     df = df.sort_values("Packet no.").reset_index(drop=True)
@@ -11,7 +13,11 @@ def build_decodable_df(
 
     buffer = b""
     results = []
-
+    decode_unit = config.decode_unit
+    sync_code = config.sync_code
+    sync_code_offset = config.sync_code_offset
+    #  = config.
+    sync_code_is_found = False
     for _, row in df.iterrows():
         pkt_no = row["Packet no."]
         data   = row["Data"]
@@ -21,6 +27,21 @@ def build_decodable_df(
             buffer = b""
             continue
         buffer += data
+
+        if not sync_code_is_found:
+            
+            pos = buffer.find(sync_code)
+            if pos != -1:
+                start = pos - sync_code_offset
+                if start < 0:
+                    # offset成立していない → まだ待つべき
+                    continue
+                print(sync_code)
+                print('find a sync code')
+                buffer = buffer[start:]
+                print(buffer)
+                sync_code_is_found = True
+            continue
 
         while len(buffer) >= decode_unit:
             chunk = buffer[:decode_unit]

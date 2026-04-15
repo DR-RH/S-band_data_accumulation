@@ -10,11 +10,13 @@ class DecoderConfig:
     output_name: str
     decode_unit: int
     bin_offset_by_sync_code: callable
+    sync_code: bytes
+    sync_code_offset: int
 
     def decode(self, bin_file: Path):
         return self.decoder(bin_file)
 
-def adcs_offset_bin(data: bytes) -> bytes:
+def adcs_offset(data: bytes) -> bytes:
     SYNC_ADCS = b"\xCA\xFE"
 
     pos = data.find(SYNC_ADCS)
@@ -23,6 +25,19 @@ def adcs_offset_bin(data: bytes) -> bytes:
         return b""
 
     offset = 36
+    start = max(0, pos - offset)
+
+    return data[start:]
+
+def main_offset(data: bytes) -> bytes:
+    SYNC_ADCS = b"\xB0\x0B"
+
+    pos = data.find(SYNC_ADCS)
+
+    if pos < 0:
+        return b""
+
+    offset = 191-2
     start = max(0, pos - offset)
 
     return data[start:]
@@ -41,6 +56,8 @@ DECODER_REGISTRY = {
         output_name="undefined.csv",
         decode_unit=8,
         bin_offset_by_sync_code=no_offset,
+        sync_code = b"",
+        sync_code_offset = 0,
     ),
     "001": DecoderConfig(
         filetype="001",
@@ -48,6 +65,8 @@ DECODER_REGISTRY = {
         output_name="obc_decoded.csv",
         decode_unit=7,
         bin_offset_by_sync_code = no_offset,
+        sync_code = b"",
+        sync_code_offset = 0,
     ),
     "010": DecoderConfig(
         filetype="010",
@@ -55,13 +74,17 @@ DECODER_REGISTRY = {
         output_name="undefined.csv",
         decode_unit=8,
         bin_offset_by_sync_code=no_offset,
+        sync_code = b"",
+        sync_code_offset = 0,
     ),
     "011": DecoderConfig(
         filetype="011",
         decoder=decoder_adcs_HK.decode,
         output_name="adcs_High_HK_decoded.csv",
         decode_unit=1473,
-        bin_offset_by_sync_code = adcs_offset_bin,
+        bin_offset_by_sync_code = adcs_offset,
+        sync_code = b"\xCA\xFE",
+        sync_code_offset = 36,
 
     ),
     
@@ -70,7 +93,9 @@ DECODER_REGISTRY = {
         decoder=decoder_adcs_HK.decode,
         output_name="adcs_Normal_HK_decoded.csv",
         decode_unit=1473,
-        bin_offset_by_sync_code = adcs_offset_bin,
+        bin_offset_by_sync_code = adcs_offset,
+        sync_code = b"\xCA\xFE",
+        sync_code_offset = 36,
     ),
 
     "101": DecoderConfig(
@@ -80,6 +105,8 @@ DECODER_REGISTRY = {
         output_name="undefined.csv",
         decode_unit=8,
         bin_offset_by_sync_code=no_offset,
+        sync_code = b"",
+        sync_code_offset = 0,
     ),
     "110": DecoderConfig(
         filetype="110",
@@ -87,7 +114,9 @@ DECODER_REGISTRY = {
         # decoder=decoder_main_HK.decode,
         output_name="main_HK_decoded.csv",
         decode_unit=191,
-        bin_offset_by_sync_code = no_offset,
+        bin_offset_by_sync_code = main_offset,
+        sync_code = b"\xB0\x0B",
+        sync_code_offset = 191-2,
     ),
     "111": DecoderConfig(
         # unsetting
@@ -96,6 +125,8 @@ DECODER_REGISTRY = {
         output_name="undefined.csv",
         decode_unit=8,
         bin_offset_by_sync_code=no_offset,
+        sync_code = b"",
+        sync_code_offset = 0,
     ),
 }
 
@@ -135,6 +166,7 @@ def decode_file(folder: Path, bin_path: Path) -> Path | None:
 def get_decode_unit(bin_file: Path) -> int | None:
     config = get_config_from_file(bin_file)
     return None if config is None else config.decode_unit
+
 def get_decode_unit_from_key(key: str) -> int | None:
     config = get_config_from_key(key)
     return None if config is None else config.decode_unit

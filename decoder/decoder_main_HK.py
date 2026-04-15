@@ -83,20 +83,18 @@ def bin_to_temperature(binary):
 
 # -------- telemetry decoding ---------
 
-# def process_timestamp (unix_time, delta):
-#     print(unix_time)
-#     print(delta)
-#     if delta == 0xFF:
-#         return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
-#     else:
-#         return datetime.datetime.fromtimestamp(unix_time - delta, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
-
 def process_timestamp (unix_time, delta):
+    if delta == 0xFF:
+        return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+    else:
+        return datetime.datetime.fromtimestamp(unix_time - delta, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
 
-    # if delta == 0xFF:
-    #     return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
-    # else:
-    return datetime.datetime.fromtimestamp(unix_time , tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S") 
+# def process_timestamp (unix_time, delta):
+
+#     # if delta == 0xFF:
+#     #     return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+#     # else:
+#     return datetime.datetime.fromtimestamp(unix_time , tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S") 
 
 
 # def process_realtime_telemetry(line):
