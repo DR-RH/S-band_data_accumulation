@@ -6,10 +6,10 @@ from pipeline.utils.constants import get_packet_size
 
 
 def load_structure_file(gse):
-    if gse == 'ISAS':
-        path = "config/s_packet_structure_modified_for_ISAS.json"
-    else:
+    if gse == 'Kyutech':
         path = "config/s_packet_structure_modified_for_Kyutech.json"
+    else:
+        path = "config/s_packet_structure_modified_for_ISAS.json"
     with open(path, "r") as f:
         bit_map = json.load(f)
     return bit_map

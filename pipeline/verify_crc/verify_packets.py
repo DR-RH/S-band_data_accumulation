@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Iterator, List
 
@@ -6,6 +7,7 @@ from pipeline.utils.crc import verify_packet_crc
 
 # コンパイル済み正規表現
 SYNC_PATTERN = CONST.SYNC_PATTERN
+logger = logging.getLogger(__name__)
 
 def extract_packets(data: bytes,gse_name) -> Iterator[bytes]:
     """バイナリストリームからパケット候補をyieldするジェネレータ"""
@@ -19,7 +21,7 @@ def extract_packets(data: bytes,gse_name) -> Iterator[bytes]:
 
 def process_data(data: bytes, gse_name: str) -> bytes:
     valid_packets: List[bytes] = []
-    ges_extra_len = CONST.GSE_CONFIG.get(gse_name, 10) 
+    ges_extra_len = CONST.GSE_CONFIG.get(gse_name, CONST.GSE_CONFIG[CONST.DEFAULT_GSE_NAME])
     calc_start = CONST.SYNC_CODE_LEN + CONST.TIMESTAMP_LEN + ges_extra_len + 1 
     calc_len = 122
 
@@ -31,5 +33,5 @@ def process_data(data: bytes, gse_name: str) -> bytes:
             # packet_num = int.from_bytes(packet[24:26], 'big')
             # if packet_num == 7352: ...
             
-    print(f"Found {len(valid_packets)} valid packets.")
+    logger.info("Found %s valid packets.", len(valid_packets))
     return b"".join(valid_packets) # 最後に一括結合（高速）

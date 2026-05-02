@@ -19,11 +19,11 @@ def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
     gse = resolve_gse(gse_arg, name)
 
     timestamped_binary = build_timestamped_binary_from_log(path)
-    valid_binary = verify_crc(timestamped_binary, gse, name)
-    packets_df = parse_into_df(valid_binary, gse, name)
+    out_dir = intermediate_dir(name)
+    valid_binary = verify_crc(timestamped_binary, gse, out_dir)
+    packets_df = parse_into_df(valid_binary, gse, out_dir)
     process_decodable_df(packets_df, name)
 
-    out_dir = intermediate_dir(name)
     if decode:
         decode_payloads(str(out_dir))
     return out_dir

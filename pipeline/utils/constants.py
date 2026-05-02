@@ -28,8 +28,9 @@ GSE_CONFIG = {
     "Kyutech": 0,
     "ISAS": 10
 }
+DEFAULT_GSE_NAME = "ISAS"
 
 def get_packet_size(gse_name: str) -> int:
-    ges_extra = GSE_CONFIG.get(gse_name, 10) 
+    ges_extra = GSE_CONFIG.get(gse_name, GSE_CONFIG[DEFAULT_GSE_NAME])
     # 全長 = Header + ges_Extra + Payload + CRC 
     return ORIGINAL_SIZE + TIMESTAMP_LEN + ges_extra  # 元コードの MIN_PACKET_LEN に相当

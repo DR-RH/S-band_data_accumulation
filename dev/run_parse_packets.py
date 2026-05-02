@@ -20,8 +20,9 @@ def main() -> None:
     name = args.name or args.input.parent.name or artifact_name(args.input)
     gse = resolve_gse(args.gse, name)
 
-    parse_into_df(read_bytes(args.input), gse, name)
-    print(intermediate_dir(name) / "step3_decode_ready.csv")
+    out_dir = intermediate_dir(name)
+    parse_into_df(read_bytes(args.input), gse, out_dir)
+    print(out_dir / "step3_decode_ready.csv")
 
 
 if __name__ == "__main__":
