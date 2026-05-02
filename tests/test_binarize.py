@@ -1,5 +1,5 @@
-from pipeline.binarize_raw_txt.binarize import build_timestamped_binary_from_log
-from pipeline.binarize_raw_txt.assemble import build_timestamp_injected_binary
+from pipeline.ingest_raw_log.binarize import build_timestamped_binary_from_log
+from pipeline.ingest_raw_log.assemble import build_timestamp_injected_binary
 from pipeline.utils.constants import TIMESTAMP_PATTERN
 from datetime import datetime, timezone
 
