@@ -84,6 +84,10 @@ def bin_to_temperature(binary):
 # -------- telemetry decoding ---------
 
 def process_timestamp (unix_time, delta):
+    print(unix_time)
+    print(type(unix_time))
+    print(delta)
+    print(type(unix_time))
     if delta == 0xFF:
         return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
     else:
@@ -225,7 +229,6 @@ def process_telemetry_chunk(chunk: bytes):
     status_com_pic = (power_line_status & 0b00000001) >> 0
     status_main_pic = (status_main_pic & 0b00000001) >> 0
 
-    timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
     reset_date = ""
     voltage_raw_power = 0
     current_3v3_1 = 0

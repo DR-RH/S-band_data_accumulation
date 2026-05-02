@@ -1,9 +1,1 @@
-[{"Byte(s)": "0:2", "Name": "Sync code", "dtype": "byte"},
- {"Byte(s)": "3:10", "Name": "Datetime", "dtype": "datetime"},
- {"Byte(s)": "11:20", "Name": "Demodulator symbol", "dtype": "byte"},
- {"Byte(s)": "21:21", "Name": "Frame counter", "dtype": "byte"},
- {"Byte(s)": "22:23", "Name": "Packet ID", "dtype": "byte"},
- {"Byte(s)": "24:25", "Name": "Total number of packets", "dtype": "int"},
- {"Byte(s)": "26:27", "Name": "Packet no.", "dtype": "int"},
- {"Byte(s)": "28:143", "Name": "Data", "dtype": "byte"},
- {"Byte(s)": "144:145", "Name": "CRC", "dtype": "byte"}]
+[{"Byte(s)": "0:2", "Name": "Sync code", "dtype": "byte"}, {"Byte(s)": "3:10", "Name": "Datetime", "dtype": "datetime"}, {"Byte(s)": "11:20", "Name": "Demodulator symbol", "dtype": "byte"}, {"Byte(s)": "21:21", "Name": "Frame counter", "dtype": "byte"}, {"Byte(s)": "22:23", "Name": "Packet ID", "dtype": "byte"}, {"Byte(s)": "24:25", "Name": "Total number of packets", "dtype": "int"}, {"Byte(s)": "26:27", "Name": "Packet no.", "dtype": "int"}, {"Byte(s)": "28:143", "Name": "Data", "dtype": "byte"}, {"Byte(s)": "144:145", "Name": "CRC", "dtype": "byte"}]

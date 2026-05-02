@@ -10,19 +10,16 @@ def build_decodable_df(
 
     df = df.sort_values("Packet no.").reset_index(drop=True)
     missing_set = set(missing)
-
     buffer = b""
     results = []
     decode_unit = config.decode_unit
     sync_code = config.sync_code
     sync_code_offset = config.sync_code_offset
-    #  = config.
     sync_code_is_found = False
     for _, row in df.iterrows():
         pkt_no = row["Packet no."]
         data   = row["Data"]
         ts     = row["Datetime"]
-
         if pkt_no in missing_set:
             buffer = b""
             continue
@@ -34,7 +31,6 @@ def build_decodable_df(
             if pos != -1:
                 start = pos - sync_code_offset
                 if start < 0:
-                    # offset成立していない → まだ待つべき
                     continue
                 print(sync_code)
                 print('find a sync code')
@@ -45,9 +41,6 @@ def build_decodable_df(
 
         while len(buffer) >= decode_unit:
             chunk = buffer[:decode_unit]
-            # print(type(chunk))
-            # print(chunk.hex())
-
             results.append({
                 "Datetime": ts,
                 "Data": chunk.hex()

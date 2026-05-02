@@ -27,16 +27,16 @@ def get_ges_type(file_name):
 
 
 def process_file(path: Path):
-    file_name = path.stem
+    folder_name = path.stem
 
-    gse = get_ges_type(file_name)
+    gse = get_ges_type(folder_name)
 
     timestamped_binary = build_timestamped_binary_from_log(path)
 
-    valid_binary = verify_crc(timestamped_binary, gse, file_name)
-    df = parse_into_df(valid_binary, gse, file_name)
+    valid_binary = verify_crc(timestamped_binary, gse, folder_name)
+    df = parse_into_df(valid_binary, gse, folder_name)
 
-    out_dir = process_decodable_df(df, file_name)
+    out_dir = process_decodable_df(df, folder_name)
     # out_file = Path("data/intermediate_output") / out_dir
     # decode.run(out_file)
 

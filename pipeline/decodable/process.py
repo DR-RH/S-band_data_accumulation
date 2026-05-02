@@ -8,7 +8,7 @@ from pipeline.utils.decode_common import get_decode_unit_from_key, DECODER_REGIS
 import pandas as pd
 from pathlib import Path
 
-def process_decodable_df(input_df: pd.DataFrame, output_path: Path):
+def process_decodable_df(input_df: pd.DataFrame, folder_name: str):
 
     packet_order_key = "Packet no."
 
@@ -23,7 +23,7 @@ def process_decodable_df(input_df: pd.DataFrame, output_path: Path):
             continue
 
         decodable_df = build_decodable_from_group(packet_id, packet_bundle)
-        write_decodable_df(decodable_df, packet_id, output_path)
+        write_decodable_df(decodable_df, packet_id, folder_name)
 
 
 def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:

@@ -41,12 +41,13 @@ def write_df(df:pd.DataFrame,
     df.to_csv(csv)
     return
 
-def write_decodable_df(df:pd.DataFrame,key:str,save_datetime):
+def write_decodable_df(df:pd.DataFrame,key:str,folder_name:str):
     id_type, id_time = key[:3], key[3:]
     data_type = DATATYPE[id_type]
     filename_time = get_filename_time(id_time)
-    prefix = f"data/intermediate_output/step4_concat_data_ID_{id_type}_{data_type}_{filename_time}.csv"
-    df.to_csv(prefix)
+    save_path = f"data/intermediate_output/{folder_name}/step4_concat_data_ID_{id_type}_{data_type}_{filename_time}.csv"
+    print(save_path)
+    df.to_csv(save_path)
 
 def write_concat_binaries(
     data_map: Dict[int, Dict],
