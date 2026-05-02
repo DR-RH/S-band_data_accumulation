@@ -3,6 +3,7 @@ from typing import List
 import logging
 from pipeline.utils.decode_common import decode_file, extract_decode_units_with_time, decode_valid_chunks, get_config_from_file
 import pandas as pd
+import os
 
 # def _break_bin(bin_paths):
 #     """
@@ -39,8 +40,8 @@ def run(folder_name: str) -> List[Path]:
         decoder = config.decoder
         data = read_decodable_data(bin_path)
         decoded_data = decoder(data)
-        new_path = bin_path.parent / f"decoded_{bin_path.name}"
-        # print(decoded_data)
+        new_path = "data/decoded/"+ bin_path.parent.name+ f"/decoded_{bin_path.name}"
+        os.makedirs(f"data/decoded/"+ bin_path.parent.name,exist_ok=True)
         df = pd.DataFrame(decoded_data)
         df.to_csv(new_path)
     return 

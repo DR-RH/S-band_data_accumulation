@@ -84,10 +84,6 @@ def bin_to_temperature(binary):
 # -------- telemetry decoding ---------
 
 def process_timestamp (unix_time, delta):
-    print(unix_time)
-    print(type(unix_time))
-    print(delta)
-    print(type(unix_time))
     if delta == 0xFF:
         return datetime.datetime.fromtimestamp(0, tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
     else:

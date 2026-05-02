@@ -9,7 +9,8 @@ import pandas as pd
 from pathlib import Path
 
 def process_decodable_df(input_df: pd.DataFrame, folder_name: str):
-
+    if input_df.empty:
+        return
     packet_order_key = "Packet no."
 
     ordered_df = input_df.sort_values(packet_order_key)
