@@ -28,10 +28,9 @@ def add_timestamp(lines):
         else: 
             # " - " で区切り、タイムスタンプ部分を取得
             # print(line.split("-"))
-            timestamp_str = "-".join(line.split("-")[:-1])
+            timestamp_str = line.split(" - ", 1)[0]
             timestamp_dt = datetime.fromisoformat(timestamp_str).replace(tzinfo=timezone.utc)
             ts_binary = datetime_to_hex(timestamp_dt)
-            print(ts_binary)
 
             ts_hex = ts_binary.hex().upper()
             result = re.sub(r'(FAF320)', ts_hex + r'\1', line)

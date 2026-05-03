@@ -1,11 +1,26 @@
-data/**
-!data/**/
-tlm/**
-!tlm/**/
-!tlm/all_tlm_in_RX_COM_COM7_20260312_153552.txt
-/.venv
+# Python cache/build artifacts
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+*$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local virtual environments
 .venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Pipeline generated artifacts
+data/intermediate_output/
+data/decoded/
+
+# Local scratch experiments
+scratch/
