@@ -22,7 +22,7 @@ def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
     out_dir = intermediate_dir(name)
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)
     packets_df = parse_into_df(valid_binary, gse, out_dir)
-    process_decodable_df(packets_df, name)
+    process_decodable_df(packets_df, out_dir)
 
     if decode:
         decode_payloads(str(out_dir))

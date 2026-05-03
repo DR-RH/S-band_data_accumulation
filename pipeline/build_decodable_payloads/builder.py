@@ -6,12 +6,12 @@ def build_decodable_df(
     config,
     # decode_unit: int,
     # sync_code:bytes,
-) -> pd.DataFrame:
+    ) -> pd.DataFrame:
 
     df = df.sort_values("Packet no.").reset_index(drop=True)
-    missing_set = set(missing)
     buffer = b""
     results = []
+    previous_pkt_no = None
 
     decode_unit = config.decode_unit
     sync_code = config.sync_code
@@ -22,9 +22,10 @@ def build_decodable_df(
         data   = row["Data"]
         ts     = row["Datetime"]
 
-        if pkt_no in missing_set:
+        if previous_pkt_no is not None and pkt_no != previous_pkt_no + 1:
             buffer = b""
-            continue
+
+        previous_pkt_no = pkt_no
 
         buffer += data
 

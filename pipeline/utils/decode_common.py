@@ -48,16 +48,18 @@ def no_offset(data):
 def decode_undefined(data):
     return ["NO","data"]
 
+def decode_hex_concat(data: bytes):
+    return [{"hex": data.hex()}]
+
 DECODER_REGISTRY = {
     "000": DecoderConfig(
-    # undefined
         file_id="000",
-        decoder=decode_undefined,
-        output_name="undefined.csv",
+        decoder=decode_hex_concat,
+        output_name="unassigned_hex.csv",
         decode_unit=8,
         bin_offset_by_sync_code=no_offset,
-        sync_code = b"",
-        sync_code_offset = 0,
+        sync_code=b"",
+        sync_code_offset=0,
     ),
     "001": DecoderConfig(
         file_id="001",

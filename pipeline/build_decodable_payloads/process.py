@@ -2,19 +2,18 @@
 from pipeline.build_decodable_payloads.builder import build_decodable_df
 from pipeline.build_decodable_payloads.missing import detect_missing_packet
 from pipeline.build_decodable_payloads.constants import AUTO_PACKET_ID
-from pipeline.build_decodable_payloads.debug import _break_packets
 from pipeline.build_decodable_payloads.io import write_decodable_df
-from pipeline.utils.decode_common import get_decode_unit_from_key, DECODER_REGISTRY
+from pipeline.utils.decode_common import DECODER_REGISTRY
 import pandas as pd
 from pathlib import Path
 
-def process_decodable_df(input_df: pd.DataFrame, folder_name: str):
+def process_decodable_df(input_df: pd.DataFrame, out_dir: Path):
     if input_df.empty:
-        return
+        return out_dir
+
     packet_order_key = "Packet no."
 
     ordered_df = input_df.sort_values(packet_order_key)
-    # sampled_df = _break_packets(ordered_df)  # debug用途
     sampled_df = ordered_df
     packet_groups = detect_missing_packet(sampled_df)
 
@@ -24,7 +23,9 @@ def process_decodable_df(input_df: pd.DataFrame, folder_name: str):
             continue
 
         decodable_df = build_decodable_from_group(packet_id, packet_bundle)
-        write_decodable_df(decodable_df, packet_id, folder_name)
+        write_decodable_df(decodable_df, packet_id, out_dir)
+
+    return out_dir
 
 
 def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
@@ -34,6 +35,9 @@ def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
 
     data_type = extract_data_type(packet_id)
     config = DECODER_REGISTRY.get(data_type)
+    if config is None:
+        raise ValueError(f"Unsupported packet data type: {data_type}")
+
     # decode_unit = get_decode_unit_from_key(data_type)
     # data_offset_by_sync_code()
 

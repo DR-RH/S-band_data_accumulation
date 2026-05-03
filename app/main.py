@@ -37,7 +37,7 @@ def process_file(path: Path):
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)
     df = parse_into_df(valid_binary, gse, out_dir)
 
-    out_dir = process_decodable_df(df, folder_name)
+    out_dir = process_decodable_df(df, out_dir)
     # out_file = Path("data/intermediate_output") / out_dir
     # decode.run(out_file)
 

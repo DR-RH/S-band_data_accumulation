@@ -17,8 +17,9 @@ def main() -> None:
     args = parser.parse_args()
 
     name = args.name or args.input.parent.name or artifact_name(args.input)
-    process_decodable_df(read_dataframe(args.input), name)
-    print(intermediate_dir(name))
+    out_dir = intermediate_dir(name)
+    process_decodable_df(read_dataframe(args.input), out_dir)
+    print(out_dir)
 
 
 if __name__ == "__main__":
