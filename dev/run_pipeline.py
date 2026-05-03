@@ -25,7 +25,7 @@ def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
     process_decodable_df(packets_df, out_dir)
 
     if decode:
-        decode_payloads(str(out_dir))
+        decode_payloads(out_dir, Path("data/decoded") / out_dir.name)
     return out_dir
 
 

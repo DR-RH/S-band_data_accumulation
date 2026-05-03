@@ -38,8 +38,6 @@ def process_file(path: Path):
     df = parse_into_df(valid_binary, gse, out_dir)
 
     out_dir = process_decodable_df(df, out_dir)
-    # out_file = Path("data/intermediate_output") / out_dir
-    # decode.run(out_file)
 
 
 def main():

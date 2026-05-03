@@ -15,8 +15,10 @@ def main() -> None:
     parser.add_argument("input", type=Path, help="Folder containing step4*.csv files.")
     args = parser.parse_args()
 
-    run(str(args.input))
-    print(Path("data/decoded") / args.input.name)
+    out_dir = Path("data/decoded") / args.input.name
+    written_paths = run(args.input, out_dir)
+    for path in written_paths:
+        print(path)
 
 
 if __name__ == "__main__":
