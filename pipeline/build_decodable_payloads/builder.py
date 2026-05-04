@@ -1,4 +1,24 @@
+from datetime import datetime, timezone
+
 import pandas as pd
+
+
+MAIN_HK_FILE_ID = "110"
+ADCS_HK_FILE_IDS = {"011", "100"}
+TIMESTAMP_OBC_START = 185
+TIMESTAMP_OBC_END = 189
+TIMESTAMP_ADCS_START = 2
+TIMESTAMP_ADCS_END = 6
+
+
+def extract_timestamp_obc(chunk: bytes) -> datetime:
+    timestamp = int.from_bytes(chunk[TIMESTAMP_OBC_START:TIMESTAMP_OBC_END], "little")
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+
+
+def extract_timestamp_adcs(chunk: bytes) -> datetime:
+    timestamp = int.from_bytes(chunk[TIMESTAMP_ADCS_START:TIMESTAMP_ADCS_END], "little")
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
 def build_decodable_df(
     df: pd.DataFrame,
@@ -8,7 +28,7 @@ def build_decodable_df(
     # sync_code:bytes,
     ) -> pd.DataFrame:
 
-    df = df.sort_values("Packet no.").reset_index(drop=True)
+    df = df.reset_index(drop=True)
     buffer = b""
     results = []
     previous_pkt_no = None
@@ -48,10 +68,16 @@ def build_decodable_df(
 
             chunk = buffer[:decode_unit]
 
-            results.append({
-                "Datetime": ts,
+            record = {
+                "Received time": ts,
                 "Data": chunk.hex()
-            })
+            }
+            if config.file_id == MAIN_HK_FILE_ID:
+                record["timestamp_obc"] = extract_timestamp_obc(chunk)
+            if config.file_id in ADCS_HK_FILE_IDS:
+                record["timestamp_adcs"] = extract_timestamp_adcs(chunk)
+
+            results.append(record)
 
             # 次を探すために進める
             buffer = buffer[decode_unit:]

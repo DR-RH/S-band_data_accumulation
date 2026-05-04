@@ -14,7 +14,7 @@ from pipeline.parse_packets.main import parse_into_df
 from pipeline.verify_crc.main import verify_crc
 
 
-def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
+def run_file(path: Path, gse_arg: str, decode: bool, db_path: Path | None = None) -> Path:
     name = artifact_name(path)
     gse = resolve_gse(gse_arg, name)
 
@@ -22,7 +22,7 @@ def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
     out_dir = intermediate_dir(name)
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)
     packets_df = parse_into_df(valid_binary, gse, out_dir)
-    process_decodable_df(packets_df, out_dir)
+    process_decodable_df(packets_df, out_dir, db_path)
 
     if decode:
         decode_payloads(out_dir, Path("data/decoded") / out_dir.name)
@@ -31,14 +31,16 @@ def run_file(path: Path, gse_arg: str, decode: bool) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the full development pipeline.")
-    parser.add_argument("input", type=Path, help="Raw telemetry log file or directory of .txt logs.")
+    parser.add_argument("input", type=Path, nargs="?", default=Path("tlm"), help="Raw telemetry log file or directory of .txt logs.")
     parser.add_argument("--gse", choices=["auto", "ISAS", "Kyutech"], default="auto")
+    parser.add_argument("--db", type=Path, default=Path("data/main_hk.sqlite"), help="SQLite DB path for Main HK payload rows.")
+    parser.add_argument("--no-db", action="store_true", help="Do not write Main HK rows to SQLite.")
     parser.add_argument("--no-decode", action="store_true", help="Stop after build_decodable_payloads.")
     args = parser.parse_args()
 
     paths = sorted(args.input.glob("*.txt")) if args.input.is_dir() else [args.input]
     for path in paths:
-        out_dir = run_file(path, args.gse, decode=not args.no_decode)
+        out_dir = run_file(path, args.gse, decode=not args.no_decode, db_path=None if args.no_db else args.db)
         print(out_dir)
 
 

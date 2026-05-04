@@ -6,14 +6,14 @@ def detect_missing_packet(df: pd.DataFrame):
     result = {}
 
     for key, group in df.groupby(group_key, sort=True):
-        group = group.sort_values("Packet no.")
+        ordered_group = group.sort_index()
 
         missing = []
         if key != AUTO_PACKET_ID:
             missing = get_missing_packets(group)
 
         result[key] = {
-            "df": group,
+            "df": ordered_group,
             "missing": missing
         }
 

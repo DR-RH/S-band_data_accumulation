@@ -50,6 +50,19 @@ Run the full pipeline for one log:
 python dev/run_pipeline.py tlm/example.txt
 ```
 
+Short form:
+
+```bash
+./run tlm/example.txt
+```
+
+If you keep raw `.txt` logs in `tlm/`, `./run` runs every `.txt` file in that
+folder:
+
+```bash
+./run
+```
+
 Run the full pipeline for every `.txt` file in a folder:
 
 ```bash

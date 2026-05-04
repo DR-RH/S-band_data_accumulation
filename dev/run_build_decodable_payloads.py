@@ -14,11 +14,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run build_decodable_payloads for parsed packet rows.")
     parser.add_argument("input", type=Path, help="Parsed packet CSV or pickle, usually step3_decode_ready.csv.")
     parser.add_argument("--name", help="Artifact folder name. Defaults to parent folder or input stem.")
+    parser.add_argument("--db", type=Path, default=Path("data/main_hk.sqlite"), help="SQLite DB path for Main HK payload rows.")
+    parser.add_argument("--no-db", action="store_true", help="Do not write Main HK rows to SQLite.")
     args = parser.parse_args()
 
     name = args.name or args.input.parent.name or artifact_name(args.input)
     out_dir = intermediate_dir(name)
-    process_decodable_df(read_dataframe(args.input), out_dir)
+    process_decodable_df(read_dataframe(args.input), out_dir, None if args.no_db else args.db)
     print(out_dir)
 
 

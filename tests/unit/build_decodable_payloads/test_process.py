@@ -27,6 +27,57 @@ def test_process_decodable_df_writes_non_auto_packet_groups(tmp_path, monkeypatc
     assert written == [("001000", tmp_path)]
 
 
+def test_process_decodable_df_stores_main_hk_rows_when_db_path_is_given(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    decodable_df = pd.DataFrame([{"Data": "aa"}])
+    stored = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"110000": bundle})
+    monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df: stored.append((db_path, packet_id, df)))
+
+    process.process_decodable_df(input_df, tmp_path, tmp_path / "main_hk.sqlite")
+
+    assert stored == [(tmp_path / "main_hk.sqlite", "110000", decodable_df)]
+
+
+def test_process_decodable_df_does_not_store_non_main_hk_rows(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    stored = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"001000": bundle})
+    monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: pd.DataFrame([{"Data": "aa"}]))
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df: stored.append((db_path, packet_id, df)))
+
+    process.process_decodable_df(input_df, tmp_path, tmp_path / "main_hk.sqlite")
+
+    assert stored == []
+
+
+def test_process_decodable_df_stores_adcs_rows_when_db_path_is_given(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    decodable_df = pd.DataFrame([{"Data": "aa"}])
+    stored = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"011000": bundle, "100000": bundle})
+    monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "store_adcs_hk_payloads", lambda db_path, packet_id, df: stored.append((db_path, packet_id, df)))
+    monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df: None)
+
+    process.process_decodable_df(input_df, tmp_path, tmp_path / "hk.sqlite")
+
+    assert stored == [
+        (tmp_path / "hk.sqlite", "011000", decodable_df),
+        (tmp_path / "hk.sqlite", "100000", decodable_df),
+    ]
+
+
 def test_build_decodable_from_group_accepts_unassigned_data_type(monkeypatch):
     packet_bundle = {"df": pd.DataFrame([{"Packet no.": 1, "Data": b"aa"}]), "missing": []}
 

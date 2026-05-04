@@ -21,6 +21,8 @@ venv/
 # Pipeline generated artifacts
 data/intermediate_output/
 data/decoded/
+data/*.sqlite
+data/*.db
 
 # Local scratch experiments
 scratch/
