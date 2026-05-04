@@ -78,6 +78,26 @@ def test_process_decodable_df_stores_adcs_rows_when_db_path_is_given(tmp_path, m
     ]
 
 
+def test_process_decodable_df_uploads_rows_when_db_server_url_is_given(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    decodable_df = pd.DataFrame([{"Data": "aa"}])
+    uploaded = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"110000": bundle, "011000": bundle})
+    monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "upload_main_hk_payloads", lambda server_url, packet_id, df: uploaded.append((server_url, packet_id, df)))
+    monkeypatch.setattr(process, "upload_adcs_hk_payloads", lambda server_url, packet_id, df: uploaded.append((server_url, packet_id, df)))
+
+    process.process_decodable_df(input_df, tmp_path, db_server_url="http://127.0.0.1:8000")
+
+    assert uploaded == [
+        ("http://127.0.0.1:8000", "110000", decodable_df),
+        ("http://127.0.0.1:8000", "011000", decodable_df),
+    ]
+
+
 def test_build_decodable_from_group_accepts_unassigned_data_type(monkeypatch):
     packet_bundle = {"df": pd.DataFrame([{"Packet no.": 1, "Data": b"aa"}]), "missing": []}
 

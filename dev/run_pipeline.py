@@ -14,7 +14,13 @@ from pipeline.parse_packets.main import parse_into_df
 from pipeline.verify_crc.main import verify_crc
 
 
-def run_file(path: Path, gse_arg: str, decode: bool, db_path: Path | None = None) -> Path:
+def run_file(
+    path: Path,
+    gse_arg: str,
+    decode: bool,
+    db_path: Path | None = None,
+    db_server_url: str | None = None,
+) -> Path:
     name = artifact_name(path)
     gse = resolve_gse(gse_arg, name)
 
@@ -22,7 +28,7 @@ def run_file(path: Path, gse_arg: str, decode: bool, db_path: Path | None = None
     out_dir = intermediate_dir(name)
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)
     packets_df = parse_into_df(valid_binary, gse, out_dir)
-    process_decodable_df(packets_df, out_dir, db_path)
+    process_decodable_df(packets_df, out_dir, db_path, db_server_url)
 
     if decode:
         decode_payloads(out_dir, Path("data/decoded") / out_dir.name)
@@ -34,13 +40,20 @@ def main() -> None:
     parser.add_argument("input", type=Path, nargs="?", default=Path("tlm"), help="Raw telemetry log file or directory of .txt logs.")
     parser.add_argument("--gse", choices=["auto", "ISAS", "Kyutech"], default="auto")
     parser.add_argument("--db", type=Path, default=Path("data/main_hk.sqlite"), help="SQLite DB path for Main HK payload rows.")
+    parser.add_argument("--db-server", help="Upload payload rows to a running DB server, for example http://127.0.0.1:8000.")
     parser.add_argument("--no-db", action="store_true", help="Do not write Main HK rows to SQLite.")
     parser.add_argument("--no-decode", action="store_true", help="Stop after build_decodable_payloads.")
     args = parser.parse_args()
 
     paths = sorted(args.input.glob("*.txt")) if args.input.is_dir() else [args.input]
     for path in paths:
-        out_dir = run_file(path, args.gse, decode=not args.no_decode, db_path=None if args.no_db else args.db)
+        out_dir = run_file(
+            path,
+            args.gse,
+            decode=not args.no_decode,
+            db_path=None if args.no_db or args.db_server else args.db,
+            db_server_url=None if args.no_db else args.db_server,
+        )
         print(out_dir)
 
 

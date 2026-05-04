@@ -63,6 +63,14 @@ folder:
 ./run
 ```
 
+Upload payload rows through the local DB server instead of writing SQLite
+directly:
+
+```bash
+python -m uvicorn server.app:app --reload
+./run tlm/example.txt --db-server http://127.0.0.1:8000
+```
+
 Run the full pipeline for every `.txt` file in a folder:
 
 ```bash
