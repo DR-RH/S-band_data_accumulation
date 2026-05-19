@@ -1,0 +1,34 @@
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local virtual environments
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Pipeline generated artifacts
+data/intermediate_output/
+data/*.sqlite
+data/*.db
+data/decoded/
+output/decoded/*
+output/accumulated/*
+output/pending_uploads/*
+!output/decoded/.gitkeep
+!output/accumulated/.gitkeep
+!output/pending_uploads/.gitkeep
+
+# Local scratch experiments
+scratch/

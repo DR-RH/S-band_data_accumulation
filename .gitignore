@@ -1,5 +1,6 @@
 # Python cache/build artifacts
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
@@ -13,16 +14,35 @@ dist/
 
 # Local virtual environments
 .venv/
+**/.venv/
 venv/
+**/venv/
 
 # macOS
 .DS_Store
+**/.DS_Store
 
-# Pipeline generated artifacts
-data/intermediate_output/
-data/decoded/
-data/*.sqlite
-data/*.db
+# Processor generated artifacts
+processor/data/intermediate_output/
+processor/data/*.sqlite
+processor/data/*.db
+processor/data/decoded/
+processor/output/decoded/*
+processor/output/accumulated/*
+processor/output/pending_uploads/*
+!processor/output/decoded/.gitkeep
+!processor/output/accumulated/.gitkeep
+!processor/output/pending_uploads/.gitkeep
+
+# Local telemetry queues and processed inputs
+processor/input/unprocessed/*
+processor/input/processed/*
+!processor/input/unprocessed/.gitkeep
+!processor/input/processed/.gitkeep
+
+# Server local database/runtime
+server/data/
 
 # Local scratch experiments
 scratch/
+**/scratch/

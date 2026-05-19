@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>S-band Downloader</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1>S-band Downloader</h1>
+        <p class="server-state" id="serverState">Server not checked</p>
+      </div>
+      <label class="api-field">
+        API
+        <input id="apiBase" type="url" value="http://127.0.0.1:8000">
+      </label>
+    </header>
+
+    <section class="workspace">
+      <div class="tabs" role="tablist" aria-label="Telemetry datasets">
+        <button class="tab" data-tab="main" role="tab" aria-selected="true">Main HK</button>
+        <button class="tab" data-tab="adcs" role="tab" aria-selected="false">ADCS</button>
+      </div>
+
+      <section class="pane active" data-pane="main" role="tabpanel">
+        <form class="filters" id="mainFilters" data-form="main">
+          <div class="range-column">
+            <span class="field-title">Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input name="startDate" type="date" value="2026-01-01">
+              <input name="startTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input name="endDate" type="date" value="2026-12-31">
+              <input name="endTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <label>
+            GSE
+            <select name="gse">
+              <option value="">All</option>
+              <option value="Kyutech">Kyutech</option>
+              <option value="ISAS">ISAS</option>
+              <option value="unknown">unknown</option>
+            </select>
+          </label>
+          <label>
+            Limit
+            <input name="limit" type="number" value="1000" min="1" max="100000">
+          </label>
+          <label>
+            Order
+            <select name="order">
+              <option value="desc" selected>Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </label>
+          <label>
+            Decoder
+            <select name="decoder">
+              <option value="latest" selected>latest</option>
+              <option value="YYYYMMDD">YYYYMMDD</option>
+            </select>
+          </label>
+        </form>
+        <div class="actions">
+          <div class="pager">
+            <button class="action" data-page="first" data-kind="main" disabled>First</button>
+            <button class="action" data-page="back" data-kind="main" disabled>Back</button>
+            <input class="page-input" data-page-input="main" type="number" min="1" value="1" disabled>
+            <span data-page-label="main">/ 0</span>
+            <button class="action" data-page="next" data-kind="main" disabled>Forward</button>
+            <button class="action" data-page="end" data-kind="main" disabled>End</button>
+          </div>
+          <button class="action" data-action="search" data-kind="main">Search</button>
+          <div class="download-cell">
+            <label class="checkline">
+              <input name="raw" type="checkbox" form="mainFilters">
+              Raw download
+            </label>
+            <button class="action primary" data-action="download" data-kind="main">Download CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>gse</th>
+                <th>packet_id</th>
+                <th>timestamp_obc</th>
+              </tr>
+            </thead>
+            <tbody id="mainRows">
+              <tr><td colspan="3">No preview loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="adcs" role="tabpanel">
+        <form class="filters" id="adcsFilters" data-form="adcs">
+          <div class="range-column">
+            <span class="field-title">Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input name="startDate" type="date" value="2026-01-01">
+              <input name="startTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input name="endDate" type="date" value="2026-12-31">
+              <input name="endTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <label>
+            GSE
+            <select name="gse">
+              <option value="">All</option>
+              <option value="Kyutech">Kyutech</option>
+              <option value="ISAS">ISAS</option>
+              <option value="unknown">unknown</option>
+            </select>
+          </label>
+          <label>
+            Limit
+            <input name="limit" type="number" value="1000" min="1" max="100000">
+          </label>
+          <label>
+            Order
+            <select name="order">
+              <option value="desc" selected>Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </label>
+          <label>
+            Decoder
+            <select name="decoder">
+              <option value="latest" selected>latest</option>
+              <option value="YYYYMMDD">YYYYMMDD</option>
+            </select>
+          </label>
+          <label>
+            Sampling
+            <select name="sampling_type">
+              <option value="">All</option>
+              <option value="high">High</option>
+              <option value="normal">Normal</option>
+            </select>
+          </label>
+        </form>
+        <div class="actions">
+          <div class="pager">
+            <button class="action" data-page="first" data-kind="adcs" disabled>First</button>
+            <button class="action" data-page="back" data-kind="adcs" disabled>Back</button>
+            <input class="page-input" data-page-input="adcs" type="number" min="1" value="1" disabled>
+            <span data-page-label="adcs">/ 0</span>
+            <button class="action" data-page="next" data-kind="adcs" disabled>Forward</button>
+            <button class="action" data-page="end" data-kind="adcs" disabled>End</button>
+          </div>
+          <button class="action" data-action="search" data-kind="adcs">Search</button>
+          <div class="download-cell">
+            <label class="checkline">
+              <input name="raw" type="checkbox" form="adcsFilters">
+              Raw download
+            </label>
+            <button class="action primary" data-action="download" data-kind="adcs">Download CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>gse</th>
+                <th>packet_id</th>
+                <th>sampling_type</th>
+                <th>timestamp_adcs</th>
+              </tr>
+            </thead>
+            <tbody id="adcsRows">
+              <tr><td colspan="4">No preview loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
