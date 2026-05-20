@@ -4,9 +4,9 @@ import argparse
 from pathlib import Path
 
 try:
-    from dev._common import artifact_name, intermediate_dir
+    from dev._common import REPORTS_PATH, artifact_name, intermediate_dir
 except ModuleNotFoundError:
-    from _common import artifact_name, intermediate_dir
+    from _common import REPORTS_PATH, artifact_name, intermediate_dir
 from pipeline.ingest_raw_log.binarize import build_timestamped_binary_from_log
 from pipeline.ingest_raw_log.io import write_step1_output
 
@@ -20,7 +20,7 @@ def main() -> None:
     name = artifact_name(args.input, args.name)
     out_dir = intermediate_dir(name)
 
-    data = build_timestamped_binary_from_log(args.input)
+    data = build_timestamped_binary_from_log(args.input, artifact_name=name, report_path=REPORTS_PATH)
     write_step1_output(data, out_dir)
 
     print(out_dir / "step1_timestamp_injected.bin")

@@ -21,6 +21,7 @@ OUTPUT_DIR = ROOT / "output"
 DECODED_OUTPUT_DIR = OUTPUT_DIR / "decoded"
 ACCUMULATED_OUTPUT_DIR = OUTPUT_DIR / "accumulated"
 PENDING_UPLOAD_DIR = OUTPUT_DIR / "pending_uploads"
+REPORTS_PATH = OUTPUT_DIR / "reports.jsonl"
 DEFAULT_DB_PATH = ACCUMULATED_OUTPUT_DIR / "payloads.sqlite"
 DEFAULT_DB_SERVER_URL = os.environ.get("S_BAND_DECODER_DB_SERVER", "http://127.0.0.1:8000")
 

@@ -1,8 +1,11 @@
+import json
+
 import pytest
 
 from pipeline.ingest_raw_log.assemble import (
     DataIntegrityError,
     build_timestamp_injected_binary,
+    choose_odd_hex_recovery,
     hex_string_to_bytes,
     validate_hex_string,
 )
@@ -41,3 +44,47 @@ def test_build_timestamp_injected_binary_rejects_invalid_hex_segment():
 
     with pytest.raises(DataIntegrityError, match="Invalid characters found in segment 0"):
         build_timestamp_injected_binary(raw, TIMESTAMP_PATTERN)
+
+
+def test_build_timestamp_injected_binary_recovers_odd_length_hex_and_reports(tmp_path):
+    raw = "2026-03-12T15:37:35.783567 - A"
+    source_path = tmp_path / "input" / "unprocessed" / "example.txt"
+    source_path.parent.mkdir(parents=True)
+    source_path.write_text(raw, encoding="utf-8")
+    report_path = tmp_path / "output" / "reports.jsonl"
+
+    result = build_timestamp_injected_binary(
+        raw,
+        TIMESTAMP_PATTERN,
+        source_path=source_path,
+        artifact_name="example",
+        report_path=report_path,
+    )
+
+    assert result == b"\xa0"
+    report = json.loads(report_path.read_text(encoding="utf-8").strip())
+    assert report["type"] == "odd_hex_recovery"
+    assert report["stage"] == "ingest_raw_log"
+    assert report["input_file"] == str(source_path)
+    assert report["artifact_name"] == "example"
+    assert report["artifact_copy"].startswith("output/report_artifacts/odd_hex_recovery/example_")
+    assert report["action"] == "append_trailing_zero"
+    assert report["original_hex_length"] == 1
+    assert report["recovered_hex_length"] == 2
+    assert report["appended"] == "0"
+    assert report["crc_check_follows"] is True
+    assert (tmp_path / report["artifact_copy"]).read_text(encoding="utf-8") == raw
+
+
+def test_choose_odd_hex_recovery_prefers_candidate_with_more_sync_words():
+    recovered, selected, candidates = choose_odd_hex_recovery("AFAF320")
+
+    assert selected["action"] == "prepend_leading_zero"
+    assert selected["prepended"] == "0"
+    assert bytes.fromhex(recovered).count(bytes.fromhex("FAF320")) == 1
+    assert {candidate["action"]: candidate["sync_count"] for candidate in candidates} == {
+        "append_trailing_zero": 0,
+        "prepend_leading_zero": 1,
+        "drop_first_nibble": 1,
+        "drop_trailing_nibble": 0,
+    }

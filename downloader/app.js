@@ -18,7 +18,32 @@ const DEFAULT_RANGE = {
   startTime: "00:00",
   endDate: "2026-12-31",
   endTime: "00:00",
+  receivedStartDate: "",
+  receivedStartTime: "00:00",
+  receivedEndDate: "",
+  receivedEndTime: "23:59",
 };
+const DEFAULT_SHARED_VALUES = {
+  ...DEFAULT_RANGE,
+  gse: "",
+  limit: "1000",
+  order: "desc",
+  decoder: "latest",
+};
+const SHARED_QUERY_FIELDS = [
+  "startDate",
+  "startTime",
+  "endDate",
+  "endTime",
+  "receivedStartDate",
+  "receivedStartTime",
+  "receivedEndDate",
+  "receivedEndTime",
+  "gse",
+  "limit",
+  "order",
+  "decoder",
+];
 
 const apiBase = document.querySelector("#apiBase");
 const serverState = document.querySelector("#serverState");
@@ -64,11 +89,20 @@ document.querySelectorAll("[data-page-input]").forEach((input) => {
 });
 
 document.querySelectorAll("form[data-form]").forEach((form) => {
-  form.addEventListener("change", () => {
-    state.offsets[form.dataset.form] = 0;
-    state.totals[form.dataset.form] = 0;
+  form.addEventListener("input", (event) => {
+    if (isSharedQueryField(event.target.name)) {
+      syncSharedQueryFields(form);
+      saveCachedFilters();
+    }
+  });
+  form.addEventListener("change", (event) => {
+    if (isSharedQueryField(event.target.name)) {
+      syncSharedQueryFields(form);
+      resetAllQueryState();
+    } else {
+      resetQueryState(form.dataset.form);
+    }
     saveCachedFilters();
-    updatePager(form.dataset.form, 0, 0);
   });
 });
 
@@ -100,9 +134,13 @@ async function loadDecoders() {
     }
     const data = await response.json();
     document.querySelectorAll("select[name='decoder']").forEach((select) => {
+      const currentValue = select.value;
       select.innerHTML = data.decoders.map((decoder) => {
         return `<option value="${escapeHtml(decoder.value)}">${escapeHtml(decoder.label)}</option>`;
       }).join("");
+      if ([...select.options].some((option) => option.value === currentValue)) {
+        select.value = currentValue;
+      }
     });
   } catch {
     // Keep the built-in fallback options when the server cannot list decoders.
@@ -114,13 +152,18 @@ async function searchRows(kind) {
   tbody.innerHTML = `<tr><td colspan="${columnCount(kind)}">Loading...</td></tr>`;
 
   try {
-    const response = await fetch(readUrl(kind, PAGE_SIZE, state.offsets[kind]));
+    const limit = displayLimit(kind);
+    const offset = Math.min(state.offsets[kind], maxOffsetForLimit(limit));
+    const pageLimit = Math.min(PAGE_SIZE, Math.max(limit - offset, 1));
+    state.offsets[kind] = offset;
+
+    const response = await fetch(readUrl(kind, pageLimit, offset));
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
     renderRows(kind, data.rows);
-    state.totals[kind] = data.total || 0;
+    state.totals[kind] = Math.min(data.total || 0, limit);
     updatePager(kind, data.rows.length, state.totals[kind]);
   } catch (error) {
     tbody.innerHTML = `<tr><td colspan="${columnCount(kind)}">Failed: ${escapeHtml(error.message)}</td></tr>`;
@@ -170,8 +213,12 @@ function queryParams(kind, limitOverride, offsetOverride = 0) {
 
   const start = combineDateTime(data.get("startDate"), data.get("startTime"));
   const end = combineDateTime(data.get("endDate"), data.get("endTime"));
+  const receivedStart = combineDateTime(data.get("receivedStartDate"), data.get("receivedStartTime"));
+  const receivedEnd = combineDateTime(data.get("receivedEndDate"), data.get("receivedEndTime"));
   if (start) params.set("start", start);
   if (end) params.set("end", end);
+  if (receivedStart) params.set("received_start", receivedStart);
+  if (receivedEnd) params.set("received_end", receivedEnd);
   if (data.get("gse")) params.set("gse", data.get("gse"));
 
   if (kind === "adcs" && data.get("sampling_type")) {
@@ -209,6 +256,7 @@ function renderRows(kind, rows) {
       return rowHtml([
         row.gse,
         row.packet_id,
+        row.received_time,
         row.timestamp_obc,
       ]);
     }
@@ -216,6 +264,7 @@ function renderRows(kind, rows) {
       row.gse,
       row.packet_id,
       row.sampling_type,
+      row.received_time,
       row.timestamp_adcs,
     ]);
   }).join("");
@@ -270,6 +319,16 @@ function lastPageOffset(kind) {
   return pages ? (pages - 1) * PAGE_SIZE : 0;
 }
 
+function displayLimit(kind) {
+  const form = document.querySelector(`[data-form='${kind}']`);
+  const value = Number.parseInt(form?.elements.limit?.value, 10);
+  return Number.isFinite(value) && value > 0 ? value : Number.parseInt(DEFAULT_SHARED_VALUES.limit, 10);
+}
+
+function maxOffsetForLimit(limit) {
+  return limit > 0 ? Math.floor((limit - 1) / PAGE_SIZE) * PAGE_SIZE : 0;
+}
+
 function mergeDuplicateUnits(rows) {
   const byUnit = new Map();
   rows.forEach((row) => {
@@ -291,7 +350,7 @@ function mergeGseLabels(left, right) {
 }
 
 function columnCount(kind) {
-  return kind === "main" ? 3 : 4;
+  return kind === "main" ? 4 : 5;
 }
 
 function rowHtml(values) {
@@ -309,13 +368,18 @@ function escapeHtml(value) {
 
 function loadCachedFilters() {
   const cache = readFilterCache();
+  const sharedValues = sharedQueryValuesFromCache(cache);
   document.querySelectorAll("form[data-form]").forEach((form) => {
     const kind = form.dataset.form;
-    const values = { ...DEFAULT_RANGE, ...(cache[kind] || {}) };
+    const values = { ...DEFAULT_RANGE, ...(cache[kind] || {}), ...sharedValues };
     setFormValue(form, "startDate", values.startDate);
     setFormValue(form, "startTime", values.startTime);
     setFormValue(form, "endDate", values.endDate);
     setFormValue(form, "endTime", values.endTime);
+    setFormValue(form, "receivedStartDate", values.receivedStartDate);
+    setFormValue(form, "receivedStartTime", values.receivedStartTime);
+    setFormValue(form, "receivedEndDate", values.receivedEndDate);
+    setFormValue(form, "receivedEndTime", values.receivedEndTime);
     setFormValue(form, "gse", values.gse || "");
     setFormValue(form, "limit", values.limit || "1000");
     setFormValue(form, "order", values.order || "desc");
@@ -326,14 +390,13 @@ function loadCachedFilters() {
 }
 
 function saveCachedFilters() {
-  const cache = {};
+  const firstForm = document.querySelector("form[data-form]");
+  const sharedValues = firstForm ? readSharedQueryFields(firstForm) : { ...DEFAULT_SHARED_VALUES };
+  const cache = { shared: sharedValues };
   document.querySelectorAll("form[data-form]").forEach((form) => {
     const data = new FormData(form);
     cache[form.dataset.form] = {
-      startDate: data.get("startDate") || DEFAULT_RANGE.startDate,
-      startTime: data.get("startTime") || DEFAULT_RANGE.startTime,
-      endDate: data.get("endDate") || DEFAULT_RANGE.endDate,
-      endTime: data.get("endTime") || DEFAULT_RANGE.endTime,
+      ...sharedValues,
       gse: data.get("gse") || "",
       limit: data.get("limit") || "1000",
       order: data.get("order") || "desc",
@@ -351,6 +414,51 @@ function readFilterCache() {
   } catch {
     return {};
   }
+}
+
+function isSharedQueryField(name) {
+  return SHARED_QUERY_FIELDS.includes(name);
+}
+
+function syncSharedQueryFields(sourceForm) {
+  const values = readSharedQueryFields(sourceForm);
+  document.querySelectorAll("form[data-form]").forEach((form) => {
+    if (form === sourceForm) return;
+    SHARED_QUERY_FIELDS.forEach((name) => setFormValue(form, name, values[name]));
+  });
+}
+
+function readSharedQueryFields(form) {
+  const data = new FormData(form);
+  return Object.fromEntries(
+    SHARED_QUERY_FIELDS.map((name) => [name, data.get(name) || DEFAULT_SHARED_VALUES[name]])
+  );
+}
+
+function sharedQueryValuesFromCache(cache) {
+  const values = { ...DEFAULT_SHARED_VALUES };
+  [cache.adcs, cache.main, cache.shared].forEach((source) => {
+    Object.assign(values, pickSharedQueryFields(source || {}));
+  });
+  return values;
+}
+
+function pickSharedQueryFields(values) {
+  return Object.fromEntries(
+    SHARED_QUERY_FIELDS
+      .filter((name) => values[name] !== undefined)
+      .map((name) => [name, values[name]])
+  );
+}
+
+function resetAllQueryState() {
+  document.querySelectorAll("form[data-form]").forEach((form) => resetQueryState(form.dataset.form));
+}
+
+function resetQueryState(kind) {
+  state.offsets[kind] = 0;
+  state.totals[kind] = 0;
+  updatePager(kind, 0, 0);
 }
 
 function setFormValue(form, name, value) {

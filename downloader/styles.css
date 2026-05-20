@@ -148,6 +148,10 @@ label {
   font-weight: 600;
 }
 
+.filter-spacer {
+  min-height: 62px;
+}
+
 input,
 select {
   width: 100%;
@@ -286,5 +290,9 @@ th {
 
   .range-row {
     grid-template-columns: 1fr;
+  }
+
+  .filter-spacer {
+    display: none;
   }
 }

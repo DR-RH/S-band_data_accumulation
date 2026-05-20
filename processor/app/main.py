@@ -1,6 +1,7 @@
 from dev._common import (
     DEFAULT_DB_SERVER_URL,
     PENDING_UPLOAD_DIR,
+    REPORTS_PATH,
     UNPROCESSED_INPUT_DIR,
     decoded_output_dir,
     intermediate_dir,
@@ -29,7 +30,7 @@ def process_file(path: Path):
 
     gse = get_ges_type(folder_name)
 
-    timestamped_binary = build_timestamped_binary_from_log(path)
+    timestamped_binary = build_timestamped_binary_from_log(path, artifact_name=folder_name, report_path=REPORTS_PATH)
 
     out_dir = intermediate_dir(folder_name)
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)

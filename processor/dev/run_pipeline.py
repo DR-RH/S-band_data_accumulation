@@ -9,6 +9,7 @@ try:
         DEFAULT_DB_PATH,
         DEFAULT_DB_SERVER_URL,
         PENDING_UPLOAD_DIR,
+        REPORTS_PATH,
         UNPROCESSED_INPUT_DIR,
         artifact_name,
         decoded_output_dir,
@@ -22,6 +23,7 @@ except ModuleNotFoundError:
         DEFAULT_DB_PATH,
         DEFAULT_DB_SERVER_URL,
         PENDING_UPLOAD_DIR,
+        REPORTS_PATH,
         UNPROCESSED_INPUT_DIR,
         artifact_name,
         decoded_output_dir,
@@ -47,7 +49,7 @@ def run_file(
     name = artifact_name(path)
     gse = resolve_gse(gse_arg, name)
 
-    timestamped_binary = build_timestamped_binary_from_log(path)
+    timestamped_binary = build_timestamped_binary_from_log(path, artifact_name=name, report_path=REPORTS_PATH)
     out_dir = intermediate_dir(name)
     valid_binary = verify_crc(timestamped_binary, gse, out_dir)
     packets_df = parse_into_df(valid_binary, gse, out_dir)

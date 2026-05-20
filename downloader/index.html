@@ -28,7 +28,7 @@
       <section class="pane active" data-pane="main" role="tabpanel">
         <form class="filters" id="mainFilters" data-form="main">
           <div class="range-column">
-            <span class="field-title">Time Range</span>
+            <span class="field-title">OBC Time Range</span>
             <label class="range-row">
               <span>Start</span>
               <input name="startDate" type="date" value="2026-01-01">
@@ -38,6 +38,19 @@
               <span>End</span>
               <input name="endDate" type="date" value="2026-12-31">
               <input name="endTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <div class="range-column">
+            <span class="field-title">Received Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input name="receivedStartDate" type="date">
+              <input name="receivedStartTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input name="receivedEndDate" type="date">
+              <input name="receivedEndTime" type="time" min="00:00" max="23:59" step="60" value="23:59">
             </label>
           </div>
           <label>
@@ -67,6 +80,7 @@
               <option value="YYYYMMDD">YYYYMMDD</option>
             </select>
           </label>
+          <div class="filter-spacer" aria-hidden="true"></div>
         </form>
         <div class="actions">
           <div class="pager">
@@ -92,11 +106,12 @@
               <tr>
                 <th>gse</th>
                 <th>packet_id</th>
+                <th>received_time</th>
                 <th>timestamp_obc</th>
               </tr>
             </thead>
             <tbody id="mainRows">
-              <tr><td colspan="3">No preview loaded.</td></tr>
+              <tr><td colspan="4">No preview loaded.</td></tr>
             </tbody>
           </table>
         </div>
@@ -105,7 +120,7 @@
       <section class="pane" data-pane="adcs" role="tabpanel">
         <form class="filters" id="adcsFilters" data-form="adcs">
           <div class="range-column">
-            <span class="field-title">Time Range</span>
+            <span class="field-title">ADCS Time Range</span>
             <label class="range-row">
               <span>Start</span>
               <input name="startDate" type="date" value="2026-01-01">
@@ -115,6 +130,19 @@
               <span>End</span>
               <input name="endDate" type="date" value="2026-12-31">
               <input name="endTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <div class="range-column">
+            <span class="field-title">Received Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input name="receivedStartDate" type="date">
+              <input name="receivedStartTime" type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input name="receivedEndDate" type="date">
+              <input name="receivedEndTime" type="time" min="00:00" max="23:59" step="60" value="23:59">
             </label>
           </div>
           <label>
@@ -178,11 +206,12 @@
                 <th>gse</th>
                 <th>packet_id</th>
                 <th>sampling_type</th>
+                <th>received_time</th>
                 <th>timestamp_adcs</th>
               </tr>
             </thead>
             <tbody id="adcsRows">
-              <tr><td colspan="4">No preview loaded.</td></tr>
+              <tr><td colspan="5">No preview loaded.</td></tr>
             </tbody>
           </table>
         </div>
@@ -190,6 +219,6 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260519-limit-preview"></script>
 </body>
 </html>

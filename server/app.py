@@ -292,6 +292,10 @@ def downloader_window():
       font-weight: 600;
     }
 
+    .filter-spacer {
+      min-height: 62px;
+    }
+
     .checkline {
       display: flex;
       align-items: center;
@@ -430,6 +434,10 @@ def downloader_window():
       .range-row {
         grid-template-columns: 1fr;
       }
+
+      .filter-spacer {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -449,7 +457,7 @@ def downloader_window():
       <section class="pane active" id="pane-main-hk" role="tabpanel" aria-labelledby="tab-main-hk">
         <div class="grid">
           <div class="range-column">
-            <span class="field-title">Time Range</span>
+            <span class="field-title">OBC Time Range</span>
             <label class="range-row">
               <span>Start</span>
               <input type="date" value="2026-01-01">
@@ -459,6 +467,19 @@ def downloader_window():
               <span>End</span>
               <input type="date" value="2026-12-31">
               <input type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <div class="range-column">
+            <span class="field-title">Received Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input type="date">
+              <input type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input type="date">
+              <input type="time" min="00:00" max="23:59" step="60" value="23:59">
             </label>
           </div>
           <label>
@@ -488,6 +509,7 @@ def downloader_window():
               <option value="YYYYMMDD">YYYYMMDD</option>
             </select>
           </label>
+          <div class="filter-spacer" aria-hidden="true"></div>
         </div>
         <div class="actions">
           <div class="pager">
@@ -513,12 +535,13 @@ def downloader_window():
               <tr>
                 <th>gse</th>
                 <th>packet_id</th>
+                <th>received_time</th>
                 <th>timestamp_obc</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="3">No preview loaded.</td>
+                <td colspan="4">No preview loaded.</td>
               </tr>
             </tbody>
           </table>
@@ -528,7 +551,7 @@ def downloader_window():
       <section class="pane" id="pane-adcs" role="tabpanel" aria-labelledby="tab-adcs">
         <div class="grid">
           <div class="range-column">
-            <span class="field-title">Time Range</span>
+            <span class="field-title">ADCS Time Range</span>
             <label class="range-row">
               <span>Start</span>
               <input type="date" value="2026-01-01">
@@ -538,6 +561,19 @@ def downloader_window():
               <span>End</span>
               <input type="date" value="2026-12-31">
               <input type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+          </div>
+          <div class="range-column">
+            <span class="field-title">Received Time Range</span>
+            <label class="range-row">
+              <span>Start</span>
+              <input type="date">
+              <input type="time" min="00:00" max="23:59" step="60" value="00:00">
+            </label>
+            <label class="range-row">
+              <span>End</span>
+              <input type="date">
+              <input type="time" min="00:00" max="23:59" step="60" value="23:59">
             </label>
           </div>
           <label>
@@ -601,12 +637,13 @@ def downloader_window():
                 <th>gse</th>
                 <th>packet_id</th>
                 <th>sampling_type</th>
+                <th>received_time</th>
                 <th>timestamp_adcs</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td colspan="4">No preview loaded.</td>
+                <td colspan="5">No preview loaded.</td>
               </tr>
             </tbody>
           </table>
