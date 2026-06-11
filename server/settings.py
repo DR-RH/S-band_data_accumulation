@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 
 
-DEFAULT_DB_PATH = Path("data/payloads.sqlite")
+SERVER_ROOT = Path(__file__).resolve().parent
+DEFAULT_DB_PATH = SERVER_ROOT / "data" / "payloads.sqlite"
 DB_PATH_ENV = "S_BAND_DECODER_DB"
 DEFAULT_DECODER_DIR = Path(__file__).resolve().parents[1] / "decoder_core" / "decoder"
 DECODER_DIR_ENV = "S_BAND_DECODER_DIR"

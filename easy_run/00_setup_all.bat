@@ -2,15 +2,16 @@
 setlocal enabledelayedexpansion
 
 set "ROOT=%~dp0.."
+set "REQUIRED_PYTHON=3.11"
 
-set "BASE_PY=py -3"
-%BASE_PY% --version >nul 2>&1
+set "BASE_PY=py -3.11"
+%BASE_PY% -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
 if errorlevel 1 (
   set "BASE_PY=python"
-  %BASE_PY% --version >nul 2>&1
+  %BASE_PY% -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
   if errorlevel 1 (
-    echo [ERROR] Python was not found.
-    echo Install Python 3.11 or make sure python/py is on PATH.
+    echo [ERROR] Python %REQUIRED_PYTHON% was not found.
+    echo Install Python %REQUIRED_PYTHON% and make sure py or python is on PATH.
     pause
     exit /b 1
   )
@@ -77,6 +78,15 @@ if not exist "%VENV_PY%" (
   echo venv already exists.
 )
 
+echo Checking venv Python version...
+"%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
+if errorlevel 1 (
+  echo [ERROR] %APP%\.venv is not Python %REQUIRED_PYTHON%.
+  "%VENV_PY%" --version
+  echo Delete %APP%\.venv and run 00_setup_all.bat again.
+  exit /b 1
+)
+
 echo Installing requirements...
 "%VENV_PY%" -m pip install -r "%REQ%"
 if errorlevel 1 (
@@ -92,4 +102,3 @@ echo.
 echo [ERROR] Setup failed.
 pause
 exit /b 1
-

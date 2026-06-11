@@ -9,6 +9,14 @@ def test_load_structure_file_uses_kyutech_only_for_exact_match():
     assert unknown[2]["Name"] == "Demodulator symbol"
 
 
+def test_load_structure_file_does_not_depend_on_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    kyutech = assemble.load_structure_file("Kyutech")
+
+    assert kyutech[0]["Name"] == "Sync code"
+
+
 def test_build_dataframe_uses_packet_size_and_parser(monkeypatch):
     calls = []
 

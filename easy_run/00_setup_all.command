@@ -3,14 +3,22 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REQUIRED_PYTHON="3.11"
 
-if command -v python3 >/dev/null 2>&1; then
-  BASE_PY="python3"
-elif command -v python >/dev/null 2>&1; then
-  BASE_PY="python"
-else
-  echo "[ERROR] Python was not found."
-  echo "Install Python 3.11 or make sure python3/python is on PATH."
+find_python311() {
+  local candidate
+  for candidate in python3.11 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)' >/dev/null 2>&1; then
+      BASE_PY="$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! find_python311; then
+  echo "[ERROR] Python $REQUIRED_PYTHON was not found."
+  echo "Install Python $REQUIRED_PYTHON and make sure python3.11/python3/python is on PATH."
   read -r "?Press Enter to close..."
   exit 1
 fi
@@ -41,6 +49,14 @@ setup_env() {
     echo "venv already exists."
   fi
 
+  echo "Checking venv Python version..."
+  if ! "$venv_py" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)' >/dev/null 2>&1; then
+    echo "[ERROR] $app/.venv is not Python $REQUIRED_PYTHON."
+    "$venv_py" --version || true
+    echo "Delete $app/.venv and run 00_setup_all.command again."
+    exit 1
+  fi
+
   echo "Installing requirements..."
   "$venv_py" -m pip install -r "$req"
   echo "[OK] $app"
@@ -65,4 +81,3 @@ echo "  2. Run 01_start_server.command."
 echo "  3. Run 02_run_processor.command."
 echo "  4. Open downloader/index.html or run 03_open_viewer.command."
 read -r "?Press Enter to close..."
-

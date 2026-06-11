@@ -3,9 +3,18 @@ import pandas as pd
 from pipeline.build_decodable_payloads import io
 
 
+def test_get_filename_time_anchors_cycle_to_reference_time():
+    result = io.get_filename_time(
+        "1100011101000",
+        pd.Timestamp("2026-03-12T15:43:59.471869+00:00"),
+    )
+
+    assert result == "2026-03-12_1540"
+
+
 def test_write_decodable_df_writes_inside_explicit_output_dir(tmp_path, monkeypatch):
     df = pd.DataFrame([{"Data": "aa"}])
-    monkeypatch.setattr(io, "get_filename_time", lambda id_time: "2026-03-12_1540")
+    monkeypatch.setattr(io, "get_filename_time", lambda id_time, reference_time=None: "2026-03-12_1540")
 
     io.write_decodable_df(df, "1101011001000101", tmp_path)
 
@@ -16,7 +25,7 @@ def test_write_decodable_df_writes_inside_explicit_output_dir(tmp_path, monkeypa
 
 def test_write_decodable_df_does_not_print_stdout(tmp_path, monkeypatch, capsys):
     df = pd.DataFrame([{"Data": "aa"}])
-    monkeypatch.setattr(io, "get_filename_time", lambda id_time: "2026-03-12_1540")
+    monkeypatch.setattr(io, "get_filename_time", lambda id_time, reference_time=None: "2026-03-12_1540")
 
     io.write_decodable_df(df, "1101011001000101", tmp_path)
 
@@ -26,7 +35,7 @@ def test_write_decodable_df_does_not_print_stdout(tmp_path, monkeypatch, capsys)
 
 def test_write_df_writes_legacy_named_csv(tmp_path, monkeypatch):
     df = pd.DataFrame([{"Data": "aa"}])
-    monkeypatch.setattr(io, "get_filename_time", lambda id_time: "2026-03-12_1540")
+    monkeypatch.setattr(io, "get_filename_time", lambda id_time, reference_time=None: "2026-03-12_1540")
 
     io.write_df(df, "1101011001000101", tmp_path)
 

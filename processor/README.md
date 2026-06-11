@@ -56,6 +56,12 @@ Short form:
 ./run input/unprocessed/example.txt
 ```
 
+On Windows PowerShell, use:
+
+```powershell
+python run input/unprocessed/example.txt
+```
+
 If you keep raw `.txt` logs in `input/unprocessed/`, `./run` runs every `.txt`
 file in that folder and moves each successfully processed file to
 `input/processed/`:
@@ -79,6 +85,14 @@ S_BAND_DECODER_DB_SERVER=http://EC2_PUBLIC_IP:8000 ./run
 ./run input/unprocessed/example.txt --db-server http://EC2_PUBLIC_IP:8000
 ```
 
+Windows PowerShell:
+
+```powershell
+$env:S_BAND_DECODER_DB_SERVER="http://EC2_PUBLIC_IP:8000"
+python run
+python run input/unprocessed/example.txt --db-server http://EC2_PUBLIC_IP:8000
+```
+
 If the DB server cannot be reached, upload payloads are saved as JSON files in
 `output/pending_uploads/` instead of being dropped. Retry them after the server
 is available:
@@ -94,6 +108,12 @@ Write to local SQLite only when explicitly requested:
 ./run --local-db
 ```
 
+Windows PowerShell:
+
+```powershell
+python run --local-db
+```
+
 Run the full pipeline for every `.txt` file in a folder:
 
 ```bash
@@ -104,10 +124,10 @@ Run individual stages:
 
 ```bash
 python dev/run_ingest_raw_log.py input/unprocessed/example.txt
-python dev/run_verify_crc.py data/intermediate_output/example/step1_timestamp_injected.bin
-python dev/run_parse_packets.py data/intermediate_output/example/step2_valid_packets.bin
-python dev/run_build_decodable_payloads.py data/intermediate_output/example/step3_decode_ready.csv
-python dev/run_decode_payloads.py data/intermediate_output/example
+python dev/run_verify_crc.py output/intermediate/example/step1_timestamp_injected.bin
+python dev/run_parse_packets.py output/intermediate/example/step2_valid_packets.bin
+python dev/run_build_decodable_payloads.py output/intermediate/example/step3_decode_ready.csv
+python dev/run_decode_payloads.py output/intermediate/example
 ```
 
 All stage entries accept `--name` when you want to override the artifact folder
@@ -117,7 +137,7 @@ name. CRC and packet parsing entries also accept `--gse auto|ISAS|Kyutech`.
 
 - `input/unprocessed/`: raw telemetry logs waiting to be processed.
 - `input/processed/`: raw telemetry logs moved here after successful processing.
-- `data/intermediate_output/`: intermediate pipeline artifacts.
+- `output/intermediate/`: intermediate pipeline artifacts.
 - `output/decoded/`: decoded CSV outputs.
 - `output/accumulated/`: accumulated HK and ADCS payload database files.
 - `config/`: packet structure definitions used during parsing.

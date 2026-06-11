@@ -10,7 +10,9 @@
 - macOS: `00_setup_all.command`
 
 これは各ソフトの `.venv` を作成し、各 `requirements.txt` をインストールする。
-すでに `.venv` がある場合は再利用する。
+Python 3.11 を使って `.venv` を作成する。
+すでに `.venv` がある場合は、Python 3.11 の `.venv` だけ再利用する。
+Python 3.11 ではない既存 `.venv` がある場合は、その `.venv` を削除してから再実行する。
 
 ## 毎回の4ステップ
 
@@ -34,3 +36,4 @@
 - `02_run_processor` は `--no-move` 付きで実行するため、投入した TLM ファイルは処理後も残る。
 - `.venv` と `requirements.txt` は各ソフトのフォルダ内にある前提。
 - `.venv` がない場合は、先に `00_setup_all` を実行する。
+- `00_setup_all` には Python 3.11 が必要。

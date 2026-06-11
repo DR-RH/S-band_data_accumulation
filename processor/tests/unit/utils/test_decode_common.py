@@ -81,7 +81,7 @@ def test_extract_file_id_reads_step4_prefix():
 
 
 def test_replace_folder_name_changes_second_path_component():
-    assert _replace_folder_name(Path("data/intermediate_output/sample")) == Path("data/decoded/sample")
+    assert _replace_folder_name(Path("output/intermediate/sample")) == Path("output/decoded/sample")
 
 
 def test_replace_folder_name_rejects_shallow_path():

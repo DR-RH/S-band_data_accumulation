@@ -30,7 +30,20 @@ By default, the server writes SQLite data to:
 data/payloads.sqlite
 ```
 
-Override it with:
+Override the DB path with:
+
+```bash
+S_BAND_DECODER_DB=/path/to/payloads.sqlite python -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+Windows PowerShell:
+
+```powershell
+$env:S_BAND_DECODER_DB="C:\path\to\payloads.sqlite"
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+Listen on all network interfaces with:
 
 ```bash
 python -m uvicorn app:app --host 0.0.0.0 --port 8000
@@ -38,16 +51,30 @@ python -m uvicorn app:app --host 0.0.0.0 --port 8000
 
 ## Pipeline Upload
 
-From the decoder project:
+From the processor project (`../processor`):
 
 ```bash
 S_BAND_DECODER_DB_SERVER=http://127.0.0.1:8000 ./run
+```
+
+Windows PowerShell:
+
+```powershell
+$env:S_BAND_DECODER_DB_SERVER="http://127.0.0.1:8000"
+python run
 ```
 
 For EC2:
 
 ```bash
 S_BAND_DECODER_DB_SERVER=http://EC2_PUBLIC_IP:8000 ./run
+```
+
+Windows PowerShell:
+
+```powershell
+$env:S_BAND_DECODER_DB_SERVER="http://EC2_PUBLIC_IP:8000"
+python run
 ```
 
 ## Download Data

@@ -19,13 +19,15 @@ venv/
 .DS_Store
 
 # Pipeline generated artifacts
-data/intermediate_output/
+output/intermediate/
 data/*.sqlite
 data/*.db
 data/decoded/
 output/decoded/*
 output/accumulated/*
 output/pending_uploads/*
+output/reports.jsonl
+output/report_artifacts/
 !output/decoded/.gitkeep
 !output/accumulated/.gitkeep
 !output/pending_uploads/.gitkeep

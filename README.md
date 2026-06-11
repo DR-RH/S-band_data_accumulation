@@ -5,7 +5,7 @@ This folder groups the S-band tools while keeping each app independent.
 ```text
 s_band/
   processor/      # telemetry pipeline and development entries
-  server/         # FastAPI DB/API server
+  server/         # FastAPI DB/API server. this is for the test development. it will not be used in product version
   downloader/     # standalone browser downloader/viewer
   decoder_core/   # shared decoder package used by processor and server
 ```
@@ -36,3 +36,18 @@ python -m dev.run_pipeline
 ```
 
 Raw telemetry input goes in `processor/input/unprocessed/`.
+
+## Windows Notes
+
+Use Python 3.11. From PowerShell:
+
+```powershell
+cd processor
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m dev.run_pipeline
+```
+
+The Unix-style `./run` shortcut can also be launched as `python run` on
+Windows.

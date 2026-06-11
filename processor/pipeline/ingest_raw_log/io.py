@@ -5,7 +5,7 @@ def read_raw_log(path: str) -> str:
     """
     Read raw telemetry log as text.
     """
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
 

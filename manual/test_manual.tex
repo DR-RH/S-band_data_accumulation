@@ -57,6 +57,9 @@ decoder\_core/ & processor と server が共有するデコーダ群。最新版
 本ツール群では、トップフォルダに共通 venv を作るのではなく、各ソフトのフォルダ配下に個別の \path{.venv} と \path{requirements.txt} を置く。
 実行時も、原則として対象ソフトのフォルダへ移動してから、そのフォルダの venv を有効化する。
 これは、設定ファイル、入力ファイル、SQLite DB などの相対パスが各ソフトのフォルダ基準になっているためである。
+Python は 3.11 系を前提とする。
+\path{easy_run/00_setup_all} は Python 3.11 を探し、見つからない場合は停止する。
+既存の \path{.venv} が Python 3.11 ではない場合も停止するため、その場合は対象フォルダの \path{.venv} を削除してから再実行する。
 
 \begin{center}
 \begin{tabular}{>{\ttfamily}p{34mm}p{34mm}p{72mm}}
@@ -365,7 +368,9 @@ curl "http://127.0.0.1:8000/adcs-hk?limit=5"
 
 最初に1回だけ、\path{easy_run/00_setup_all} を実行する。
 このファイルは、\path{processor/}、\path{server/}、\path{downloader/}、\path{decoder_core/} の各 \path{.venv} を作成し、各 \path{requirements.txt} をインストールする。
-既に \path{.venv} がある場合は再利用する。
+Python 3.11 で \path{.venv} を作成する。
+既に \path{.venv} がある場合は、Python 3.11 の \path{.venv} だけ再利用する。
+Python 3.11 ではない既存 \path{.venv} がある場合は、対象フォルダの \path{.venv} を削除してから再実行する。
 
 \begin{itemize}
   \item Windows: \path{easy_run/00_setup_all.bat}
