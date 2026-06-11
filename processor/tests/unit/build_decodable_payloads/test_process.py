@@ -19,12 +19,27 @@ def test_process_decodable_df_writes_non_auto_packet_groups(tmp_path, monkeypatc
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"001000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: pd.DataFrame([{"Data": "aa"}]))
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: written.append((packet_id, out_dir)))
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: written.append((packet_id, out_dir)))
 
     result = process.process_decodable_df(input_df, tmp_path)
 
     assert result == tmp_path
     assert written == [("001000", tmp_path)]
+
+
+def test_process_decodable_df_writes_auto_packet_groups(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    written = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {process.AUTO_PACKET_ID: bundle})
+    monkeypatch.setattr(process, "build_realtime_decodable_df", lambda df: pd.DataFrame([{"Data": "aa"}]))
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: written.append((packet_id, out_dir)))
+
+    result = process.process_decodable_df(input_df, tmp_path)
+
+    assert result == tmp_path
+    assert written == [(process.AUTO_PACKET_ID, tmp_path)]
 
 
 def test_process_decodable_df_stores_main_hk_rows_when_db_path_is_given(tmp_path, monkeypatch):
@@ -35,7 +50,7 @@ def test_process_decodable_df_stores_main_hk_rows_when_db_path_is_given(tmp_path
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"110000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
     monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df, gse: stored.append((db_path, packet_id, df, gse)))
 
     process.process_decodable_df(input_df, tmp_path, tmp_path / "main_hk.sqlite", gse="Kyutech")
@@ -50,7 +65,7 @@ def test_process_decodable_df_does_not_store_non_main_hk_rows(tmp_path, monkeypa
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"001000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: pd.DataFrame([{"Data": "aa"}]))
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
     monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df, gse: stored.append((db_path, packet_id, df, gse)))
 
     process.process_decodable_df(input_df, tmp_path, tmp_path / "main_hk.sqlite")
@@ -66,7 +81,7 @@ def test_process_decodable_df_stores_adcs_rows_when_db_path_is_given(tmp_path, m
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"011000": bundle, "100000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
     monkeypatch.setattr(process, "store_adcs_hk_payloads", lambda db_path, packet_id, df, gse: stored.append((db_path, packet_id, df, gse)))
     monkeypatch.setattr(process, "store_main_hk_payloads", lambda db_path, packet_id, df, gse: None)
 
@@ -86,7 +101,7 @@ def test_process_decodable_df_uploads_rows_when_db_server_url_is_given(tmp_path,
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"110000": bundle, "011000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
     monkeypatch.setattr(process, "upload_main_hk_payloads", lambda server_url, packet_id, df, gse: uploaded.append((server_url, packet_id, df, gse)))
     monkeypatch.setattr(process, "upload_adcs_hk_payloads", lambda server_url, packet_id, df, gse: uploaded.append((server_url, packet_id, df, gse)))
 
@@ -106,7 +121,7 @@ def test_process_decodable_df_queues_upload_when_server_connection_fails(tmp_pat
 
     monkeypatch.setattr(process, "detect_missing_packet", lambda df: {"011000": bundle})
     monkeypatch.setattr(process, "build_decodable_from_group", lambda packet_id, packet_bundle: decodable_df)
-    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir: None)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
 
     def fail_upload(server_url, packet_id, df, gse):
         raise process.UploadConnectionError("server down")
@@ -163,3 +178,7 @@ def test_build_decodable_from_group_uses_decoder_config(monkeypatch):
 
 def test_extract_data_type():
     assert process.extract_data_type("1101011001000101") == "110"
+
+
+def test_extract_data_type_restores_leading_zero_for_binary_ids():
+    assert process.extract_data_type("101011001000101") == "010"

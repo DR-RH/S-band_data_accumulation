@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import pickle
 import sys
 import os
@@ -39,7 +40,7 @@ def artifact_name(path: Path, name: str | None = None) -> str:
 
 
 def intermediate_dir(name: str) -> Path:
-    return ROOT / "data" / "intermediate_output" / name
+    return OUTPUT_DIR / "intermediate" / name
 
 
 def decoded_output_dir(name: str) -> Path:
@@ -66,4 +67,25 @@ def read_dataframe(path: Path) -> pd.DataFrame:
     if path.suffix == ".pickle":
         with path.open("rb") as f:
             return pickle.load(f)
-    return pd.read_csv(path)
+    df = pd.read_csv(path, dtype={"Packet ID": str})
+    for column in ("Sync code", "Demodulator symbol", "Data", "CRC"):
+        if column in df:
+            df[column] = df[column].map(_restore_bytes_literal)
+    return df
+
+
+def _restore_bytes_literal(value):
+    if not isinstance(value, str):
+        return value
+
+    stripped = value.strip()
+    if not stripped.startswith(("b'", 'b"')):
+        return value
+
+    try:
+        parsed = ast.literal_eval(stripped)
+    except (SyntaxError, ValueError):
+        return value
+    if isinstance(parsed, bytes):
+        return parsed
+    return value

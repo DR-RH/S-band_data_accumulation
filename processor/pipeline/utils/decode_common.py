@@ -1,5 +1,5 @@
 from pathlib import Path
-from decoder import decoder_main_HK, decoder_main_log, decoder_adcs_HK  
+from decoder import decoder_main_HK, decoder_main_log, decoder_adcs_HK, decoder_real_time_telemetry
 import pandas as pd
 from dataclasses import dataclass
 
@@ -72,9 +72,9 @@ DECODER_REGISTRY = {
     ),
     "010": DecoderConfig(
         file_id="010",
-        decoder=decode_undefined,
-        output_name="undefined.csv",
-        decode_unit=8,
+        decoder=decoder_real_time_telemetry.decode,
+        output_name="real_time_TLM_decoded.csv",
+        decode_unit=decoder_real_time_telemetry.REALTIME_TLM_SIZE,
         bin_offset_by_sync_code=no_offset,
         sync_code = b"",
         sync_code_offset = 0,

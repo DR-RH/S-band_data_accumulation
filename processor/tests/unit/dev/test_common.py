@@ -35,16 +35,18 @@ def test_artifact_name_prefers_explicit_name_or_path_stem():
     assert artifact_name(Path("/tmp/sample.txt"), "custom") == "custom"
 
 
-def test_intermediate_dir_points_to_project_data_folder():
+def test_intermediate_dir_points_to_project_output_folder():
     path = intermediate_dir("sample")
 
     assert path.name == "sample"
-    assert path.parent.name == "intermediate_output"
+    assert path.parent.name == "intermediate"
+    assert path.parent.parent.name == "output"
 
 
 def test_output_and_input_paths_use_organized_layout():
     assert UNPROCESSED_INPUT_DIR.parts[-2:] == ("input", "unprocessed")
     assert PROCESSED_INPUT_DIR.parts[-2:] == ("input", "processed")
+    assert intermediate_dir("sample").parts[-3:] == ("output", "intermediate", "sample")
     assert decoded_output_dir("sample").parts[-3:] == ("output", "decoded", "sample")
     assert DEFAULT_DB_PATH.parts[-3:] == ("output", "accumulated", "payloads.sqlite")
     assert DEFAULT_DB_SERVER_URL.startswith("http")
@@ -75,3 +77,20 @@ def test_read_dataframe_supports_csv_and_pickle(tmp_path):
 
     assert read_dataframe(csv_path).equals(df)
     assert read_dataframe(pickle_path).equals(df)
+
+
+def test_read_dataframe_preserves_packet_id_and_restores_byte_literals(tmp_path):
+    csv_path = tmp_path / "step3.csv"
+    pd.DataFrame(
+        {
+            "Packet ID": ["0101011001000101"],
+            "Data": [repr(b"SUTELEMETRY 0 abc")],
+            "CRC": [repr(b"\xce\xad")],
+        }
+    ).to_csv(csv_path, index=False)
+
+    result = read_dataframe(csv_path)
+
+    assert result.iloc[0]["Packet ID"] == "0101011001000101"
+    assert result.iloc[0]["Data"] == b"SUTELEMETRY 0 abc"
+    assert result.iloc[0]["CRC"] == b"\xce\xad"

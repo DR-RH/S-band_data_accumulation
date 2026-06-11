@@ -3,7 +3,8 @@ from pipeline.build_decodable_payloads.builder import build_decodable_df
 from pipeline.build_decodable_payloads.missing import detect_missing_packet
 from pipeline.build_decodable_payloads.constants import AUTO_PACKET_ID
 from pipeline.build_decodable_payloads.db import store_adcs_hk_payloads, store_main_hk_payloads
-from pipeline.build_decodable_payloads.io import write_decodable_df
+from pipeline.build_decodable_payloads.io import get_reference_time, write_decodable_df
+from pipeline.build_decodable_payloads.realtime import build_realtime_decodable_df
 from pipeline.build_decodable_payloads.upload_queue import enqueue_upload
 from pipeline.build_decodable_payloads.uploader import (
     UploadConnectionError,
@@ -36,13 +37,17 @@ def process_decodable_df(
     sampled_df = ordered_df
     packet_groups = detect_missing_packet(sampled_df)
 
-    for packet_id, packet_bundle in packet_groups.items():
+    for raw_packet_id, packet_bundle in packet_groups.items():
 
-        if packet_id == AUTO_PACKET_ID:
-            continue
+        packet_id = normalize_packet_id(raw_packet_id)
 
         decodable_df = build_decodable_from_group(packet_id, packet_bundle)
-        write_decodable_df(decodable_df, packet_id, out_dir)
+        write_decodable_df(
+            decodable_df,
+            packet_id,
+            out_dir,
+            reference_time=get_reference_time(packet_bundle["df"]),
+        )
         if db_path is not None:
             data_type = extract_data_type(packet_id)
             if data_type == MAIN_HK_DATA_TYPE:
@@ -76,6 +81,7 @@ def process_decodable_df(
 
 
 def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
+    packet_id = normalize_packet_id(packet_id)
 
     packet_df = packet_bundle["df"]
     missing_packets = packet_bundle["missing"]
@@ -84,6 +90,9 @@ def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
     config = DECODER_REGISTRY.get(data_type)
     if config is None:
         raise ValueError(f"Unsupported packet data type: {data_type}")
+
+    if packet_id == AUTO_PACKET_ID:
+        return build_realtime_decodable_df(packet_df)
 
     # decode_unit = get_decode_unit_from_key(data_type)
     # data_offset_by_sync_code()
@@ -96,7 +105,14 @@ def build_decodable_from_group(packet_id, packet_bundle) -> pd.DataFrame:
     return decodable_df
 
 def extract_data_type(packet_id: str) -> str:
-    return packet_id[:3]
+    return normalize_packet_id(packet_id)[:3]
+
+
+def normalize_packet_id(packet_id) -> str:
+    value = str(packet_id).strip()
+    if value and set(value) <= {"0", "1"} and 13 <= len(value) <= 16:
+        return value.zfill(16)
+    return value
 
 
 def upload_or_queue(server_url: str, endpoint: str, packet_id: str, df: pd.DataFrame, pending_upload_dir: Path | None, upload_func, gse: str):

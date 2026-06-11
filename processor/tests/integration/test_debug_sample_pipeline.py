@@ -41,6 +41,7 @@ def test_debug_sample_runs_through_full_pipeline(tmp_path):
 
     step4_names = {path.name for path in out_dir.glob("step4_concat_data_ID_*.csv")}
     assert step4_names == {
+        "step4_concat_data_ID_010_real_time_TLM_2026-03-07_2310.csv",
         "step4_concat_data_ID_001_main_exe_log_2026-03-12_1540.csv",
         "step4_concat_data_ID_011_adcs_high_2026-03-12_1530.csv",
         "step4_concat_data_ID_100_adcs_normal_2026-03-12_1540.csv",
@@ -50,6 +51,7 @@ def test_debug_sample_runs_through_full_pipeline(tmp_path):
 
     decoded_names = {path.name for path in decoded_paths}
     assert decoded_names == {
+        "decoded_step4_concat_data_ID_010_real_time_TLM_2026-03-07_2310.csv",
         "decoded_step4_concat_data_ID_001_main_exe_log_2026-03-12_1540.csv",
         "decoded_step4_concat_data_ID_011_adcs_high_2026-03-12_1530.csv",
         "decoded_step4_concat_data_ID_110_main_HK_log_2026-03-12_1540.csv",
