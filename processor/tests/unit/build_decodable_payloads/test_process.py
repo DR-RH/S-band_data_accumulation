@@ -58,6 +58,22 @@ def test_process_decodable_df_stores_main_hk_rows_when_db_path_is_given(tmp_path
     assert stored == [(tmp_path / "main_hk.sqlite", "110000", decodable_df, "Kyutech")]
 
 
+def test_process_decodable_df_stores_realtime_hk_rows_when_db_path_is_given(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    decodable_df = pd.DataFrame([{"Data": "aa"}])
+    stored = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {process.AUTO_PACKET_ID: bundle})
+    monkeypatch.setattr(process, "build_realtime_decodable_df", lambda df: decodable_df)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
+    monkeypatch.setattr(process, "store_realtime_hk_payloads", lambda db_path, packet_id, df, gse: stored.append((db_path, packet_id, df, gse)))
+
+    process.process_decodable_df(input_df, tmp_path, tmp_path / "realtime_hk.sqlite", gse="Kyutech")
+
+    assert stored == [(tmp_path / "realtime_hk.sqlite", process.AUTO_PACKET_ID, decodable_df, "Kyutech")]
+
+
 def test_process_decodable_df_does_not_store_non_main_hk_rows(tmp_path, monkeypatch):
     input_df = pd.DataFrame([{"Packet no.": 1}])
     bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
@@ -110,6 +126,24 @@ def test_process_decodable_df_uploads_rows_when_db_server_url_is_given(tmp_path,
     assert uploaded == [
         ("http://127.0.0.1:8000", "110000", decodable_df, "Kyutech"),
         ("http://127.0.0.1:8000", "011000", decodable_df, "Kyutech"),
+    ]
+
+
+def test_process_decodable_df_uploads_realtime_rows_when_db_server_url_is_given(tmp_path, monkeypatch):
+    input_df = pd.DataFrame([{"Packet no.": 1}])
+    bundle = {"df": pd.DataFrame([{"Packet no.": 1}]), "missing": []}
+    decodable_df = pd.DataFrame([{"Data": "aa"}])
+    uploaded = []
+
+    monkeypatch.setattr(process, "detect_missing_packet", lambda df: {process.AUTO_PACKET_ID: bundle})
+    monkeypatch.setattr(process, "build_realtime_decodable_df", lambda df: decodable_df)
+    monkeypatch.setattr(process, "write_decodable_df", lambda df, packet_id, out_dir, reference_time=None: None)
+    monkeypatch.setattr(process, "upload_realtime_hk_payloads", lambda server_url, packet_id, df, gse: uploaded.append((server_url, packet_id, df, gse)))
+
+    process.process_decodable_df(input_df, tmp_path, db_server_url="http://127.0.0.1:8000", gse="Kyutech")
+
+    assert uploaded == [
+        ("http://127.0.0.1:8000", process.AUTO_PACKET_ID, decodable_df, "Kyutech"),
     ]
 
 

@@ -3,7 +3,14 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from pipeline.build_decodable_payloads.db import ADCS_HK_TABLE, MAIN_HK_TABLE, store_adcs_hk_payloads, store_main_hk_payloads
+from pipeline.build_decodable_payloads.db import (
+    ADCS_HK_TABLE,
+    MAIN_HK_TABLE,
+    REALTIME_HK_TABLE,
+    store_adcs_hk_payloads,
+    store_main_hk_payloads,
+    store_realtime_hk_payloads,
+)
 
 
 def test_store_main_hk_payloads_writes_recommended_timestamp_columns(tmp_path):
@@ -88,6 +95,39 @@ def test_store_main_hk_payloads_keeps_two_gse_receptions_for_one_unit(tmp_path):
     assert rows[0][0] != rows[1][0]
     assert rows[0][1] == rows[1][1]
     assert [row[2] for row in rows] == ["ISAS", "Kyutech"]
+
+
+def test_store_realtime_hk_payloads_writes_obc_timestamp_columns(tmp_path):
+    db_path = tmp_path / "realtime_hk.sqlite"
+    df = pd.DataFrame(
+        [
+            {
+                "Received time": "2026-05-23T19:19:06.369286+00:00",
+                "timestamp_obc": "2026-05-23T00:29:36+00:00",
+                "Data": "aabbcc",
+            }
+        ]
+    )
+
+    inserted = store_realtime_hk_payloads(db_path, "0101011001000101", df, "Kyutech")
+
+    assert inserted == 1
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            f"""
+            SELECT gse, packet_id, received_time, timestamp_obc, timestamp_obc_unix, data_hex
+            FROM {REALTIME_HK_TABLE}
+            """
+        ).fetchone()
+
+    assert row == (
+        "Kyutech",
+        "0101011001000101",
+        "2026-05-23T19:19:06.369286+00:00",
+        "2026-05-23T00:29:36+00:00",
+        1779496176,
+        "aabbcc",
+    )
 
 
 def test_store_adcs_hk_payloads_writes_high_and_normal_sampling_rows(tmp_path):

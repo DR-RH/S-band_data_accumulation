@@ -12,7 +12,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from decoder_catalog import list_decoders
-from db import ADCS_HK_TABLE, MAIN_HK_TABLE, ensure_payload_schema, store_adcs_hk_payloads, store_main_hk_payloads
+from db import (
+    ADCS_HK_TABLE,
+    MAIN_HK_TABLE,
+    REALTIME_HK_TABLE,
+    ensure_payload_schema,
+    store_adcs_hk_payloads,
+    store_main_hk_payloads,
+    store_realtime_hk_payloads,
+)
 from settings import db_path, decoder_dir
 from sqlite_utils import connect, require_table
 
@@ -28,7 +36,7 @@ tags_metadata = [
     },
     {
         "name": "Read Payloads",
-        "description": "Read accumulated Main HK and ADCS HK payload rows.",
+        "description": "Read accumulated Main HK, Real Time HK, and ADCS HK payload rows.",
     },
     {
         "name": "Downloads",
@@ -45,7 +53,7 @@ app = FastAPI(
     summary="Standalone API for accumulating decoded S-band telemetry payloads.",
     description=(
         "Receives payload rows from the decoder pipeline, stores them in SQLite, "
-        "and provides simple read endpoints for Main HK and ADCS HK data."
+        "and provides simple read endpoints for Main HK, Real Time HK, and ADCS HK data."
     ),
     version="0.1.0",
     openapi_tags=tags_metadata,
@@ -135,6 +143,16 @@ ADCS_HK_COLUMNS = [
     "received_time",
     "timestamp_adcs",
     "timestamp_adcs_unix",
+    "data_hex",
+]
+REALTIME_HK_COLUMNS = [
+    "reception_id",
+    "unit_id",
+    "gse",
+    "packet_id",
+    "received_time",
+    "timestamp_obc",
+    "timestamp_obc_unix",
     "data_hex",
 ]
 
@@ -733,6 +751,32 @@ def main_hk(
 
 
 @app.get(
+    "/real-time-hk",
+    response_model=RowsResponse,
+    tags=["Read Payloads"],
+    summary="Read accumulated Real Time HK payload rows",
+)
+def real_time_hk(
+    gse: str | None = Query(None, description="Optional GSE filter."),
+    packet_id: str | None = Query(None, description="Optional exact packet ID filter."),
+    start: str | None = Query(None, description="Optional start timestamp_obc filter, ISO format."),
+    end: str | None = Query(None, description="Optional end timestamp_obc filter, ISO format."),
+    received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
+    received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
+    order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum rows to return."),
+    offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
+):
+    with connect() as conn:
+        ensure_payload_schema(conn, REALTIME_HK_TABLE)
+        require_table(conn, REALTIME_HK_TABLE)
+        rows = select_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
+        total = count_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
+
+    return {"rows": [dict(row) for row in rows], "limit": limit, "offset": offset, "total": total}
+
+
+@app.get(
     "/adcs-hk",
     response_model=AdcsRowsResponse,
     tags=["Read Payloads"],
@@ -801,6 +845,37 @@ def download_main_hk_csv(
 
 
 @app.get(
+    "/downloads/real-time-hk.csv",
+    tags=["Downloads"],
+    summary="Download Real Time HK payload rows as CSV",
+)
+def download_real_time_hk_csv(
+    gse: str | None = Query(None, description="Optional GSE filter."),
+    packet_id: str | None = Query(None, description="Optional exact packet ID filter."),
+    start: str | None = Query(None, description="Optional start timestamp_obc filter, ISO format."),
+    end: str | None = Query(None, description="Optional end timestamp_obc filter, ISO format."),
+    received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
+    received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
+    raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
+    decoder: str = Query("latest", description="Decoder version set for decoded download."),
+    order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
+    limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
+    offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
+):
+    with connect() as conn:
+        ensure_payload_schema(conn, REALTIME_HK_TABLE)
+        require_table(conn, REALTIME_HK_TABLE)
+        rows = select_realtime_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
+
+    if raw:
+        return csv_response("raw_real_time_hk_payloads.csv", REALTIME_HK_COLUMNS, rows)
+    return decoded_csv_response(
+        decoded_filename("real_time_hk", decoder),
+        decode_realtime_hk_rows(rows, decoder),
+    )
+
+
+@app.get(
     "/downloads/adcs-hk.csv",
     tags=["Downloads"],
     summary="Download ADCS HK payload rows as CSV",
@@ -844,6 +919,17 @@ def download_adcs_hk_csv(
 )
 def upload_main_hk(payload: PayloadUpload):
     inserted = store_main_hk_payloads(db_path(), payload.packet_id, pd.DataFrame(payload.rows), payload.gse)
+    return {"inserted": inserted}
+
+
+@app.post(
+    "/payloads/real-time-hk",
+    response_model=UploadResponse,
+    tags=["Upload Payloads"],
+    summary="Upload Real Time HK payload rows",
+)
+def upload_real_time_hk(payload: PayloadUpload):
+    inserted = store_realtime_hk_payloads(db_path(), payload.packet_id, pd.DataFrame(payload.rows), payload.gse)
     return {"inserted": inserted}
 
 
@@ -958,6 +1044,114 @@ def count_main_hk_preview_rows(
         SELECT COUNT(*) FROM (
             SELECT unit_id
             FROM {MAIN_HK_TABLE}
+            {where}
+            GROUP BY unit_id
+        )
+        """,
+        params,
+    ).fetchone()[0]
+
+
+def select_realtime_hk_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+    order: str,
+    limit: int,
+    offset: int,
+):
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_obc",
+    )
+    direction = sql_order_direction(order)
+    params.extend([limit, offset])
+    return conn.execute(
+        f"""
+        SELECT {", ".join(REALTIME_HK_COLUMNS)}
+        FROM {REALTIME_HK_TABLE}
+        {where}
+        ORDER BY timestamp_obc_unix {direction}, received_time {direction}
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    ).fetchall()
+
+
+def select_realtime_hk_preview_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+    order: str,
+    limit: int,
+    offset: int,
+):
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_obc",
+    )
+    direction = sql_order_direction(order)
+    params.extend([limit, offset])
+    return conn.execute(
+        f"""
+        SELECT
+            unit_id,
+            GROUP_CONCAT(DISTINCT gse) AS gse,
+            MIN(packet_id) AS packet_id,
+            MIN(received_time) AS received_time,
+            MIN(timestamp_obc) AS timestamp_obc,
+            MIN(timestamp_obc_unix) AS sort_timestamp
+        FROM {REALTIME_HK_TABLE}
+        {where}
+        GROUP BY unit_id
+        ORDER BY sort_timestamp {direction}
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    ).fetchall()
+
+
+def count_realtime_hk_preview_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+) -> int:
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_obc",
+    )
+    return conn.execute(
+        f"""
+        SELECT COUNT(*) FROM (
+            SELECT unit_id
+            FROM {REALTIME_HK_TABLE}
             {where}
             GROUP BY unit_id
         )
@@ -1164,6 +1358,13 @@ def decode_main_hk_rows(rows, decoder: str) -> list[dict]:
     from decoder import decoder_main_HK
 
     return decoder_main_HK.decode(join_data_hex(rows))
+
+
+def decode_realtime_hk_rows(rows, decoder: str) -> list[dict]:
+    require_latest_decoder(decoder)
+    from decoder import decoder_real_time_telemetry
+
+    return decoder_real_time_telemetry.decode(join_data_hex(rows))
 
 
 def decode_adcs_hk_rows(rows, decoder: str) -> list[dict]:

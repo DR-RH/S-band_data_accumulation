@@ -2,7 +2,7 @@
 from pipeline.build_decodable_payloads.builder import build_decodable_df
 from pipeline.build_decodable_payloads.missing import detect_missing_packet
 from pipeline.build_decodable_payloads.constants import AUTO_PACKET_ID
-from pipeline.build_decodable_payloads.db import store_adcs_hk_payloads, store_main_hk_payloads
+from pipeline.build_decodable_payloads.db import store_adcs_hk_payloads, store_main_hk_payloads, store_realtime_hk_payloads
 from pipeline.build_decodable_payloads.io import get_reference_time, write_decodable_df
 from pipeline.build_decodable_payloads.realtime import build_realtime_decodable_df
 from pipeline.build_decodable_payloads.upload_queue import enqueue_upload
@@ -11,6 +11,7 @@ from pipeline.build_decodable_payloads.uploader import (
     payload_from_df,
     upload_adcs_hk_payloads,
     upload_main_hk_payloads,
+    upload_realtime_hk_payloads,
 )
 from pipeline.utils.decode_common import DECODER_REGISTRY
 import pandas as pd
@@ -18,6 +19,7 @@ from pathlib import Path
 
 MAIN_HK_DATA_TYPE = "110"
 ADCS_HK_DATA_TYPES = {"011", "100"}
+REALTIME_HK_DATA_TYPE = "010"
 
 
 def process_decodable_df(
@@ -52,6 +54,8 @@ def process_decodable_df(
             data_type = extract_data_type(packet_id)
             if data_type == MAIN_HK_DATA_TYPE:
                 store_main_hk_payloads(db_path, packet_id, decodable_df, gse)
+            if data_type == REALTIME_HK_DATA_TYPE:
+                store_realtime_hk_payloads(db_path, packet_id, decodable_df, gse)
             if data_type in ADCS_HK_DATA_TYPES:
                 store_adcs_hk_payloads(db_path, packet_id, decodable_df, gse)
         if db_server_url is not None:
@@ -64,6 +68,16 @@ def process_decodable_df(
                     decodable_df,
                     pending_upload_dir,
                     upload_main_hk_payloads,
+                    gse,
+                )
+            if data_type == REALTIME_HK_DATA_TYPE:
+                upload_or_queue(
+                    db_server_url,
+                    "/payloads/real-time-hk",
+                    packet_id,
+                    decodable_df,
+                    pending_upload_dir,
+                    upload_realtime_hk_payloads,
                     gse,
                 )
             if data_type in ADCS_HK_DATA_TYPES:

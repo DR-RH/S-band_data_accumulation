@@ -10,6 +10,7 @@ import pandas as pd
 
 MAIN_HK_TABLE = "main_hk_payloads"
 ADCS_HK_TABLE = "adcs_hk_payloads"
+REALTIME_HK_TABLE = "real_time_hk_payloads"
 ADCS_SAMPLING_TYPES = {
     "011": "high",
     "100": "normal",
@@ -22,6 +23,9 @@ def ensure_payload_schema(conn: sqlite3.Connection, table_name: str) -> None:
         return
     if table_name == ADCS_HK_TABLE:
         _ensure_adcs_hk_schema(conn)
+        return
+    if table_name == REALTIME_HK_TABLE:
+        _ensure_realtime_hk_schema(conn)
         return
     raise ValueError(f"Unsupported payload table: {table_name}")
 
@@ -55,6 +59,14 @@ def _reception_id(gse: str, packet_id: str, timestamp_unix: int, data_hex: str) 
 
 
 def store_main_hk_payloads(db_path: Path, packet_id: str, df: pd.DataFrame, gse: str = "unknown") -> int:
+    return _store_obc_hk_payloads(db_path, MAIN_HK_TABLE, packet_id, df, gse)
+
+
+def store_realtime_hk_payloads(db_path: Path, packet_id: str, df: pd.DataFrame, gse: str = "unknown") -> int:
+    return _store_obc_hk_payloads(db_path, REALTIME_HK_TABLE, packet_id, df, gse)
+
+
+def _store_obc_hk_payloads(db_path: Path, table_name: str, packet_id: str, df: pd.DataFrame, gse: str = "unknown") -> int:
     if df.empty:
         return 0
 
@@ -78,11 +90,11 @@ def store_main_hk_payloads(db_path: Path, packet_id: str, df: pd.DataFrame, gse:
         )
 
     with sqlite3.connect(db_path) as conn:
-        _ensure_main_hk_schema(conn)
+        _ensure_obc_hk_schema(conn, table_name)
         before_changes = conn.total_changes
         conn.executemany(
             f"""
-            INSERT OR IGNORE INTO {MAIN_HK_TABLE}
+            INSERT OR IGNORE INTO {table_name}
             (reception_id, unit_id, gse, packet_id, received_time, timestamp_obc, timestamp_obc_unix, data_hex)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -132,11 +144,19 @@ def store_adcs_hk_payloads(db_path: Path, packet_id: str, df: pd.DataFrame, gse:
 
 
 def _ensure_main_hk_schema(conn: sqlite3.Connection) -> None:
-    if not _table_exists(conn, MAIN_HK_TABLE):
-        _create_main_hk_table(conn)
+    _ensure_obc_hk_schema(conn, MAIN_HK_TABLE)
+
+
+def _ensure_realtime_hk_schema(conn: sqlite3.Connection) -> None:
+    _ensure_obc_hk_schema(conn, REALTIME_HK_TABLE)
+
+
+def _ensure_obc_hk_schema(conn: sqlite3.Connection, table_name: str) -> None:
+    if not _table_exists(conn, table_name):
+        _create_obc_hk_table(conn, table_name)
         return
-    if not _has_reception_primary_key(conn, MAIN_HK_TABLE):
-        _migrate_main_hk_table(conn)
+    if not _has_reception_primary_key(conn, table_name):
+        _migrate_obc_hk_table(conn, table_name)
 
 
 def _ensure_adcs_hk_schema(conn: sqlite3.Connection) -> None:
@@ -148,9 +168,17 @@ def _ensure_adcs_hk_schema(conn: sqlite3.Connection) -> None:
 
 
 def _create_main_hk_table(conn: sqlite3.Connection) -> None:
+    _create_obc_hk_table(conn, MAIN_HK_TABLE)
+
+
+def _create_realtime_hk_table(conn: sqlite3.Connection) -> None:
+    _create_obc_hk_table(conn, REALTIME_HK_TABLE)
+
+
+def _create_obc_hk_table(conn: sqlite3.Connection, table_name: str) -> None:
     conn.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS {MAIN_HK_TABLE} (
+        CREATE TABLE IF NOT EXISTS {table_name} (
             reception_id TEXT PRIMARY KEY,
             unit_id TEXT NOT NULL,
             gse TEXT NOT NULL DEFAULT 'unknown',
@@ -183,9 +211,17 @@ def _create_adcs_hk_table(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_main_hk_table(conn: sqlite3.Connection) -> None:
-    legacy_table = f"{MAIN_HK_TABLE}_legacy"
-    conn.execute(f"ALTER TABLE {MAIN_HK_TABLE} RENAME TO {legacy_table}")
-    _create_main_hk_table(conn)
+    _migrate_obc_hk_table(conn, MAIN_HK_TABLE)
+
+
+def _migrate_realtime_hk_table(conn: sqlite3.Connection) -> None:
+    _migrate_obc_hk_table(conn, REALTIME_HK_TABLE)
+
+
+def _migrate_obc_hk_table(conn: sqlite3.Connection, table_name: str) -> None:
+    legacy_table = f"{table_name}_legacy"
+    conn.execute(f"ALTER TABLE {table_name} RENAME TO {legacy_table}")
+    _create_obc_hk_table(conn, table_name)
     for row in _table_dicts(conn, legacy_table):
         gse = row.get("gse") or "unknown"
         timestamp_unix = row["timestamp_obc_unix"]
@@ -193,7 +229,7 @@ def _migrate_main_hk_table(conn: sqlite3.Connection) -> None:
         packet_id = row["packet_id"]
         conn.execute(
             f"""
-            INSERT OR IGNORE INTO {MAIN_HK_TABLE}
+            INSERT OR IGNORE INTO {table_name}
             (reception_id, unit_id, gse, packet_id, received_time, timestamp_obc, timestamp_obc_unix, data_hex)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,

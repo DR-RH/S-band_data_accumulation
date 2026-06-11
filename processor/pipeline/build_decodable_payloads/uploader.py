@@ -26,6 +26,11 @@ def upload_adcs_hk_payloads(server_url: str, packet_id: str, df: pd.DataFrame, g
     return int(response["inserted"])
 
 
+def upload_realtime_hk_payloads(server_url: str, packet_id: str, df: pd.DataFrame, gse: str = "unknown") -> int:
+    response = upload_payload(server_url, "/payloads/real-time-hk", payload_from_df(packet_id, df, gse))
+    return int(response["inserted"])
+
+
 def payload_from_df(packet_id: str, df: pd.DataFrame, gse: str = "unknown") -> dict:
     payload = {"packet_id": packet_id, "gse": gse, "rows": _rows_for_json(df)}
     return payload

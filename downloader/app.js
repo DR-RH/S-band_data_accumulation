@@ -3,10 +3,12 @@ const state = {
   offsets: {
     main: 0,
     adcs: 0,
+    realtime: 0,
   },
   totals: {
     main: 0,
     adcs: 0,
+    realtime: 0,
   },
 };
 
@@ -148,7 +150,7 @@ async function loadDecoders() {
 }
 
 async function searchRows(kind) {
-  const tbody = document.querySelector(kind === "main" ? "#mainRows" : "#adcsRows");
+  const tbody = document.querySelector(rowTargetSelector(kind));
   tbody.innerHTML = `<tr><td colspan="${columnCount(kind)}">Loading...</td></tr>`;
 
   try {
@@ -196,12 +198,12 @@ function downloadCsv(kind) {
 }
 
 function readUrl(kind, limitOverride, offsetOverride = 0) {
-  const path = kind === "main" ? "/main-hk" : "/adcs-hk";
+  const path = datasetPath(kind);
   return `${cleanApiBase()}${path}?${queryParams(kind, limitOverride, offsetOverride)}`;
 }
 
 function downloadUrl(kind) {
-  const path = kind === "main" ? "/downloads/main-hk.csv" : "/downloads/adcs-hk.csv";
+  const path = datasetDownloadPath(kind);
   return `${cleanApiBase()}${path}?${queryParams(kind)}`;
 }
 
@@ -244,7 +246,7 @@ function cleanApiBase() {
 }
 
 function renderRows(kind, rows) {
-  const tbody = document.querySelector(kind === "main" ? "#mainRows" : "#adcsRows");
+  const tbody = document.querySelector(rowTargetSelector(kind));
   const displayRows = mergeDuplicateUnits(rows);
   if (!displayRows.length) {
     tbody.innerHTML = `<tr><td colspan="${columnCount(kind)}">No rows found.</td></tr>`;
@@ -252,7 +254,7 @@ function renderRows(kind, rows) {
   }
 
   tbody.innerHTML = displayRows.map((row) => {
-    if (kind === "main") {
+    if (kind === "main" || kind === "realtime") {
       return rowHtml([
         row.gse,
         row.packet_id,
@@ -350,7 +352,25 @@ function mergeGseLabels(left, right) {
 }
 
 function columnCount(kind) {
-  return kind === "main" ? 4 : 5;
+  return kind === "adcs" ? 5 : 4;
+}
+
+function rowTargetSelector(kind) {
+  if (kind === "main") return "#mainRows";
+  if (kind === "realtime") return "#realtimeRows";
+  return "#adcsRows";
+}
+
+function datasetPath(kind) {
+  if (kind === "main") return "/main-hk";
+  if (kind === "realtime") return "/real-time-hk";
+  return "/adcs-hk";
+}
+
+function datasetDownloadPath(kind) {
+  if (kind === "main") return "/downloads/main-hk.csv";
+  if (kind === "realtime") return "/downloads/real-time-hk.csv";
+  return "/downloads/adcs-hk.csv";
 }
 
 function rowHtml(values) {
@@ -437,7 +457,7 @@ function readSharedQueryFields(form) {
 
 function sharedQueryValuesFromCache(cache) {
   const values = { ...DEFAULT_SHARED_VALUES };
-  [cache.adcs, cache.main, cache.shared].forEach((source) => {
+  [cache.realtime, cache.adcs, cache.main, cache.shared].forEach((source) => {
     Object.assign(values, pickSharedQueryFields(source || {}));
   });
   return values;

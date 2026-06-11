@@ -77,6 +77,32 @@ def test_upload_adcs_hk_payloads_posts_expected_payload(monkeypatch):
     ]
 
 
+def test_upload_realtime_hk_payloads_posts_expected_payload(monkeypatch):
+    posted = []
+    df = pd.DataFrame([{"Received time": "received", "timestamp_obc": "obc", "Data": "aa"}])
+
+    def fake_post_json(server_url, path, payload):
+        posted.append((server_url, path, payload))
+        return {"inserted": 5}
+
+    monkeypatch.setattr(uploader, "_post_json", fake_post_json)
+
+    inserted = uploader.upload_realtime_hk_payloads("http://127.0.0.1:8000", "010000", df, "Kyutech")
+
+    assert inserted == 5
+    assert posted == [
+        (
+            "http://127.0.0.1:8000",
+            "/payloads/real-time-hk",
+            {
+                "packet_id": "010000",
+                "gse": "Kyutech",
+                "rows": [{"Received time": "received", "timestamp_obc": "obc", "Data": "aa"}],
+            },
+        )
+    ]
+
+
 def test_payload_from_df_builds_upload_payload():
     df = pd.DataFrame([{"Received time": "received", "Data": "aa"}])
 
