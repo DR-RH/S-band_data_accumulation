@@ -11,6 +11,8 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+*.swp
+*.swo
 
 # Local virtual environments
 .venv/
@@ -23,13 +25,15 @@ venv/
 **/.DS_Store
 
 # Processor generated artifacts
-processor/data/intermediate_output/
+processor/output/intermediate/
 processor/data/*.sqlite
 processor/data/*.db
 processor/data/decoded/
 processor/output/decoded/*
 processor/output/accumulated/*
 processor/output/pending_uploads/*
+processor/output/reports.jsonl
+processor/output/report_artifacts/
 !processor/output/decoded/.gitkeep
 !processor/output/accumulated/.gitkeep
 !processor/output/pending_uploads/.gitkeep
@@ -39,6 +43,14 @@ processor/input/unprocessed/*
 processor/input/processed/*
 !processor/input/unprocessed/.gitkeep
 !processor/input/processed/.gitkeep
+
+# Local/debug telemetry data
+processor/debug_tlm/
+
+# Manual build artifacts
+manual/*.aux
+manual/*.log
+manual/*.out
 
 # Server local database/runtime
 server/data/

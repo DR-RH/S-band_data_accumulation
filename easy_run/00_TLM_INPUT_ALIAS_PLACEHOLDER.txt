@@ -1,0 +1,12 @@
+This is a placeholder.
+
+Later, replace this file with a Finder alias or shortcut named something like:
+
+  00_TLM_INPUT
+
+The alias/shortcut should point to:
+
+  ../processor/input/unprocessed/
+
+Users should put raw TLM .txt files into that alias/shortcut.
+

@@ -1,0 +1,408 @@
+\documentclass[a4paper,11pt]{ltjsarticle}
+
+\usepackage[margin=22mm]{geometry}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\setlist[itemize]{leftmargin=2em}
+\setlist[enumerate]{leftmargin=2em}
+\renewcommand{\arraystretch}{1.25}
+
+\title{S-band TLM 処理・DB格納・HTML Viewer 試験マニュアル}
+\author{}
+\date{2026年6月5日}
+
+\begin{document}
+\maketitle
+
+\section{目的}
+
+本書は、\path{s_band} フォルダに含まれる試験用ツール一式の使い方をまとめる。
+対象は、S-band TLM ログを processor で処理し、パケット単位のデータを Main HK と ADCS HK の2系統に分けて DB サーバへ格納し、HTML viewer から検索・確認・CSV ダウンロードする試験手順である。
+
+\section{フォルダ構成}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{36mm}p{112mm}}
+\toprule
+フォルダ & 役割 \\
+\midrule
+processor/ & TLM ログの ingest、CRC 検証、パケット解析、デコード可能 payload の構築、DB アップロードを行う。 \\
+server/ & 試験用 FastAPI DB サーバ。SQLite に payload 行を保存し、検索 API と CSV ダウンロード API を提供する。製品版ではなく開発・試験用。 \\
+downloader/ & ブラウザで開く HTML viewer。DB サーバに接続し、Main HK / ADCS HK を検索・プレビュー・CSV ダウンロードする。 \\
+decoder\_core/ & processor と server が共有するデコーダ群。最新版と日付付きアーカイブ版を管理する。 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{全体フロー}
+
+\begin{enumerate}
+  \item DB サーバをローカルで起動する。
+  \item HTML viewer をローカルで起動し、DB サーバへの接続状態を確認する。
+  \item TLM テキストログを \path{processor/input/unprocessed/} に配置する。
+  \item processor を実行する。
+  \item processor が TLM をパケット候補に分割し、CRC 正常なパケットだけを残す。
+  \item パケット構造 JSON に従って、Packet ID、Packet no.、Datetime、Data などの行に変換する。
+  \item Packet ID ごとに payload を再構成し、DB 格納対象を Main HK と ADCS HK に分ける。
+  \item DB サーバへ HTTP POST で格納する。
+  \item HTML viewer から検索、プレビュー、CSV ダウンロードを行う。
+\end{enumerate}
+
+\section{Python 環境の方針}
+
+本ツール群では、トップフォルダに共通 venv を作るのではなく、各ソフトのフォルダ配下に個別の \path{.venv} と \path{requirements.txt} を置く。
+実行時も、原則として対象ソフトのフォルダへ移動してから、そのフォルダの venv を有効化する。
+これは、設定ファイル、入力ファイル、SQLite DB などの相対パスが各ソフトのフォルダ基準になっているためである。
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{34mm}p{34mm}p{72mm}}
+\toprule
+ソフト & 環境 & 備考 \\
+\midrule
+processor/ & .venv, requirements.txt & TLM 処理、pytest、pandas、crcmod などを含む。 \\
+server/ & .venv, requirements.txt & FastAPI、uvicorn、pandas を含む。DB パスは server フォルダ基準。 \\
+downloader/ & .venv, requirements.txt & 外部 Python package は不要。標準ライブラリの http.server で静的 viewer を配信する。 \\
+decoder\_core/ & .venv, requirements.txt & 共有デコーダ単体確認用。pandas、pytz を含む。 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{環境作成・更新コマンド}
+
+各フォルダで以下を実行する。
+
+\begin{verbatim}
+cd processor
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+\end{verbatim}
+
+\begin{verbatim}
+cd server
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+\end{verbatim}
+
+\begin{verbatim}
+cd downloader
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+\end{verbatim}
+
+\begin{verbatim}
+cd decoder_core
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+\end{verbatim}
+
+\section{processor の処理概要}
+
+processor の主な開発用入口は \path{processor/dev/run_pipeline.py} である。
+簡易実行用に \path{processor/run} も用意されている。
+
+\subsection{処理段階}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{50mm}p{98mm}}
+\toprule
+段階 & 内容 \\
+\midrule
+ingest\_raw\_log & 生 TLM テキストを読み込み、ログ中の時刻と16進データを正規化し、タイムスタンプ付き binary を作る。 \\
+verify\_crc & sync code を基準にパケット候補を切り出し、CRC が正しいパケットだけを結合して残す。 \\
+parse\_packets & GSE 種別に応じた packet structure JSON を使い、binary パケットを DataFrame 行へ変換する。 \\
+build\_decodable\_payloads & Packet ID ごとに並べ替え、欠番を検出し、デコード可能な payload chunk を構築する。 \\
+decode\_payloads & 共有デコーダを使って decoded CSV を出力する。 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{DB 格納時の2系統分割}
+
+DB 格納・アップロード時は、Packet ID の先頭3 bit を data type として扱う。
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{24mm}p{40mm}p{78mm}}
+\toprule
+先頭3 bit & 系統 & DB/API \\
+\midrule
+110 & Main HK & \path{main_hk_payloads}、\path{/payloads/main-hk} \\
+011 & ADCS HK high & \path{adcs_hk_payloads}、\path{/payloads/adcs-hk} \\
+100 & ADCS HK normal & \path{adcs_hk_payloads}、\path{/payloads/adcs-hk} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Main HK は OBC timestamp を持つ行として保存される。
+ADCS HK は ADCS timestamp と sampling type を持つ行として保存される。
+
+\section{DB サーバの起動}
+
+\subsection{依存関係のインストール}
+
+\begin{verbatim}
+cd server
+.venv/bin/python -m pip install -r requirements.txt
+\end{verbatim}
+
+\subsection{ローカル起動}
+
+\begin{verbatim}
+cd server
+.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+\end{verbatim}
+
+起動後、以下を開く。
+
+\begin{verbatim}
+http://127.0.0.1:8000/docs
+\end{verbatim}
+
+DB の既定パスは、server フォルダから起動した場合、次である。
+
+\begin{verbatim}
+server/data/payloads.sqlite
+\end{verbatim}
+
+\subsection{主な API}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{54mm}p{94mm}}
+\toprule
+API & 用途 \\
+\midrule
+/health & サーバ状態と DB パスを確認する。 \\
+/decoders & viewer の decoder 選択肢を取得する。 \\
+/main-hk & Main HK payload の JSON 検索・プレビュー。 \\
+/adcs-hk & ADCS HK payload の JSON 検索・プレビュー。 \\
+/downloads/main-hk.csv & Main HK CSV ダウンロード。 \\
+/downloads/adcs-hk.csv & ADCS HK CSV ダウンロード。 \\
+/payloads/main-hk & processor から Main HK payload を POST する。 \\
+/payloads/adcs-hk & processor から ADCS HK payload を POST する。 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{HTML viewer の起動}
+
+\subsection{起動}
+
+\begin{verbatim}
+cd downloader
+.venv/bin/python -m http.server 8080
+\end{verbatim}
+
+ブラウザで以下を開く。
+
+\begin{verbatim}
+http://127.0.0.1:8080
+\end{verbatim}
+
+画面右上の API 欄の既定値は次である。
+
+\begin{verbatim}
+http://127.0.0.1:8000
+\end{verbatim}
+
+DB サーバが起動していれば、画面上部に Connected と DB パスが表示される。
+
+\subsection{viewer の機能}
+
+\begin{itemize}
+  \item Main HK タブで OBC 時刻範囲、受信時刻範囲、GSE、件数、並び順、decoder を指定して検索する。
+  \item ADCS タブで ADCS 時刻範囲、受信時刻範囲、GSE、sampling type、件数、並び順、decoder を指定して検索する。
+  \item Search でプレビューを表示する。
+  \item Download CSV で CSV を取得する。
+  \item Raw download を有効にすると、保存済み raw payload 行をそのまま取得する。
+\end{itemize}
+
+\section{TLM ログの処理}
+
+\subsection{入力ファイル配置}
+
+処理対象の \path{.txt} TLM ログを以下に置く。
+
+\begin{verbatim}
+processor/input/unprocessed/
+\end{verbatim}
+
+\subsection{全ファイルを処理}
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run
+\end{verbatim}
+
+\path{input/unprocessed/} 内の \path{.txt} が処理され、成功したファイルは \path{input/processed/} に移動される。
+
+\subsection{1ファイルだけ処理}
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run input/unprocessed/example.txt
+\end{verbatim}
+
+\subsection{入力ファイルを移動せずに処理}
+
+開発・再現確認では、入力ファイルを残すために \path{--no-move} を付ける。
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run input/unprocessed/example.txt --no-move
+\end{verbatim}
+
+\subsection{DB サーバ指定}
+
+既定のアップロード先は次である。
+
+\begin{verbatim}
+http://127.0.0.1:8000
+\end{verbatim}
+
+明示する場合は環境変数またはオプションを使う。
+
+\begin{verbatim}
+cd processor
+S_BAND_DECODER_DB_SERVER=http://127.0.0.1:8000 .venv/bin/python ./run
+\end{verbatim}
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run input/unprocessed/example.txt \
+  --db-server http://127.0.0.1:8000
+\end{verbatim}
+
+\subsection{DB へ送らずに処理}
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run input/unprocessed/example.txt --no-db
+\end{verbatim}
+
+\subsection{ローカル SQLite に直接書き込む}
+
+HTTP サーバを使わず、processor 側の SQLite に直接保存する場合は \path{--local-db} を使う。
+
+\begin{verbatim}
+cd processor
+.venv/bin/python ./run input/unprocessed/example.txt --local-db
+\end{verbatim}
+
+\section{出力先}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}p{72mm}p{76mm}}
+\toprule
+パス & 内容 \\
+\midrule
+processor/output/intermediate/ & 各処理段階の中間成果物。 \\
+processor/output/decoded/ & decode\_payloads による decoded CSV。 \\
+processor/output/pending\_uploads/ & DB サーバ接続失敗時の保留アップロード JSON。 \\
+processor/output/reports.jsonl & ingest 時の補正や検出結果などのレポート。 \\
+server/data/payloads.sqlite & 試験用 DB サーバの SQLite DB。 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{DB サーバ停止中の扱い}
+
+processor 実行時に DB サーバへ接続できない場合、payload は破棄されず、次のフォルダに JSON として退避される。
+
+\begin{verbatim}
+processor/output/pending_uploads/
+\end{verbatim}
+
+DB サーバ起動後、以下で再送する。
+
+\begin{verbatim}
+cd processor
+.venv/bin/python -m dev.retry_uploads
+\end{verbatim}
+
+サーバ URL を指定する場合は次のようにする。
+
+\begin{verbatim}
+cd processor
+.venv/bin/python -m dev.retry_uploads --db-server http://127.0.0.1:8000
+\end{verbatim}
+
+\section{動作確認}
+
+\subsection{DB サーバ確認}
+
+\begin{verbatim}
+curl http://127.0.0.1:8000/health
+\end{verbatim}
+
+\subsection{テーブル確認}
+
+\begin{verbatim}
+curl http://127.0.0.1:8000/tables
+\end{verbatim}
+
+\subsection{Main HK プレビュー}
+
+\begin{verbatim}
+curl "http://127.0.0.1:8000/main-hk?limit=5"
+\end{verbatim}
+
+\subsection{ADCS HK プレビュー}
+
+\begin{verbatim}
+curl "http://127.0.0.1:8000/adcs-hk?limit=5"
+\end{verbatim}
+
+\section{簡易実行フォルダ}
+
+トップフォルダ直下の \path{easy_run/} は、初心者向けに4ステップで使うための簡易実行フォルダである。
+エイリアスは後で作り直す前提のため、現時点では \path{00_TLM_INPUT_ALIAS_PLACEHOLDER.txt} を置いている。
+運用時はこのプレースホルダを、\path{processor/input/unprocessed/} へのエイリアスまたはショートカットに置き換える。
+
+\subsection{初回だけ実行}
+
+最初に1回だけ、\path{easy_run/00_setup_all} を実行する。
+このファイルは、\path{processor/}、\path{server/}、\path{downloader/}、\path{decoder_core/} の各 \path{.venv} を作成し、各 \path{requirements.txt} をインストールする。
+既に \path{.venv} がある場合は再利用する。
+
+\begin{itemize}
+  \item Windows: \path{easy_run/00_setup_all.bat}
+  \item macOS: \path{easy_run/00_setup_all.command}
+\end{itemize}
+
+\subsection{毎回の4ステップ}
+
+\begin{enumerate}
+  \item TLM 投入エイリアスへ \path{.txt} ファイルを入れる。
+  \item \path{easy_run/01_start_server} を実行し、DB サーバを起動したままにする。
+  \item \path{easy_run/02_run_processor} を実行し、TLM を処理して DB へ格納する。
+  \item \path{downloader/index.html} を開き、viewer で Search を押す。
+\end{enumerate}
+
+Windows では \path{.bat}、macOS では \path{.command} を使う。
+viewer を開くための補助ファイルとして、\path{easy_run/03_open_viewer} も用意している。
+
+\section{よく使う試験手順}
+
+\begin{enumerate}
+  \item Terminal 1 で DB サーバを起動する。
+  \item Terminal 2 で HTML viewer を起動する。
+  \item viewer を開き、Connected と表示されることを確認する。
+  \item TLM ログを \path{processor/input/unprocessed/} に置く。
+  \item Terminal 3 で \path{cd processor && .venv/bin/python ./run --no-move} を実行する。
+  \item viewer の Main HK / ADCS タブで Search を押し、行が増えていることを確認する。
+  \item 必要に応じて Raw download または decoded CSV をダウンロードする。
+\end{enumerate}
+
+\section{注意事項}
+
+\begin{itemize}
+  \item GSE はファイル名に \path{RX_COM} を含む場合 Kyutech、それ以外は ISAS と推定される。明示する場合は \path{--gse Kyutech} または \path{--gse ISAS} を指定する。
+  \item server は試験用であり、README にも製品版では使用しない旨が記載されている。
+  \item \path{server/app.py} にも \path{/downloader} があるが、実際の検索・ダウンロード用 viewer は \path{downloader/index.html} と \path{downloader/app.js} である。
+  \item decoded download は最新版 decoder が既定である。日付付き decoder は選択肢として表示されるが、バージョン指定再デコードは未実装の扱いである。
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,2 @@
+# No external Python packages are required.
+# Use the standard-library http.server module to serve this static viewer.
