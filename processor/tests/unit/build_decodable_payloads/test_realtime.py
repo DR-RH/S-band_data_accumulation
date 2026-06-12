@@ -35,7 +35,7 @@ def test_build_realtime_decodable_df_pairs_0_and_1_payloads():
     result = build_realtime_decodable_df(df)
 
     expected = (
-        packet_0_payload[:100]
+        packet_0_payload[2:102]
         + packet_1_payload[:91]
         + packet_1_payload[91:102]
     )

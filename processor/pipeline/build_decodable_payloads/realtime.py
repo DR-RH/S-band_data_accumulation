@@ -10,6 +10,7 @@ import pandas as pd
 
 MARKERS = (b"VERTECSUTELEMETRY", b"VERTECSVTELEMETRY")
 PAIR_PREFIX_SIZE = len(b"VERTECSUTELEMETRY") + len(b" 0 ")
+PACKET_0_MAIN_PREFIX_SIZE = 2
 MAIN_FROM_PACKET_0_SIZE = 100
 MAIN_FROM_PACKET_1_SIZE = 91
 COM_FROM_PACKET_1_SIZE = 11
@@ -97,13 +98,14 @@ def build_realtime_body(row: pd.Series) -> bytes:
 
 
 def combine_realtime_pair(packet_0_payload: bytes, packet_1_payload: bytes) -> bytes | None:
-    if len(packet_0_payload) < MAIN_FROM_PACKET_0_SIZE:
+    packet_0_end = PACKET_0_MAIN_PREFIX_SIZE + MAIN_FROM_PACKET_0_SIZE
+    if len(packet_0_payload) < packet_0_end:
         return None
     if len(packet_1_payload) < MAIN_FROM_PACKET_1_SIZE + COM_FROM_PACKET_1_SIZE:
         return None
 
     main_pic_tlm = (
-        packet_0_payload[:MAIN_FROM_PACKET_0_SIZE]
+        packet_0_payload[PACKET_0_MAIN_PREFIX_SIZE:packet_0_end]
         + packet_1_payload[:MAIN_FROM_PACKET_1_SIZE]
     )
     com_pic_tlm = packet_1_payload[
