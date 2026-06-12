@@ -11,6 +11,7 @@
 
 これは各ソフトの `.venv` を作成し、各 `requirements.txt` をインストールする。
 Python 3.11 を使って `.venv` を作成する。
+requirements を入れる前に `pip`、`setuptools`、`wheel` を更新する。
 すでに `.venv` がある場合は、Python 3.11 の `.venv` だけ再利用する。
 Python 3.11 ではない既存 `.venv` がある場合は、その `.venv` を削除してから再実行する。
 

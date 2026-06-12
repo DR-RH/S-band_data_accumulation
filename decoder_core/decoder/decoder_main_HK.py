@@ -131,6 +131,7 @@ def process_telemetry_chunk(chunk: bytes):
         current_12v,
         power_line_status,
         status_main_pic) = struct.unpack(">7B8H2B164x", chunk)
+    raw_timestamp_reset = timestamp_reset
 
     # Unpack eps pic data
     (timestamp_fab,
@@ -203,46 +204,54 @@ def process_telemetry_chunk(chunk: bytes):
 
     # Reset HK
     timestamp_reset = process_timestamp(timestamp_obc, timestamp_reset)
-    voltage_raw_power = voltage_raw_power * 3.3 * 3 / 4096
+    if raw_timestamp_reset != 0xFF:
+        try:
+            reset_date = datetime.datetime(
+                2000 + year, month, day, hour, minute, second, 0, pytz.UTC
+            ).strftime("%Y/%m/%d %H:%M:%S")
+        except ValueError:
+            reset_date = ""
 
-    # Current equations
-    current_3v3_1 = (1606.822 * current_3v3_1 * 3.3 / 4096) - 37.39071
-    current_3v3_2 = (1595.419618 * current_3v3_2 * 3.3 / 4096) - 0.252035868
-    current_5v0 = (801.63197 * current_5v0 * 3.3 / 4096) - 3.163097
-    current_unreg1 = (2407.441267 * current_unreg1 * 3.3 / 4096) - 6.117030991
-    current_unreg2 = (2421.76513 * current_unreg2 * 3.3 / 4096) - 10.1421109
-    current_unreg3 = (1973.436273 * current_unreg3 * 3.3 / 4096) - 9.717381297
-    current_12v = (1567.774583 * current_12v * 3.3 / 4096) - 3.51635074
+        voltage_raw_power = voltage_raw_power * 3.3 * 3 / 4096
 
-    # Power line status
-    status_3v3_1 = (power_line_status & 0b10000000) >> 7
-    status_3v3_2 = (power_line_status & 0b01000000) >> 6
-    status_5v = (power_line_status & 0b00100000) >> 5
-    status_unreg1 = (power_line_status & 0b00010000) >> 4
-    status_unreg2 = (power_line_status & 0b00001000) >> 3
-    status_unreg3 = (power_line_status & 0b00000100) >> 2
-    status_12v = (power_line_status & 0b00000010) >> 1
-    status_com_pic = (power_line_status & 0b00000001) >> 0
-    status_main_pic = (status_main_pic & 0b00000001) >> 0
+        # Current equations
+        current_3v3_1 = (1606.822 * current_3v3_1 * 3.3 / 4096) - 37.39071
+        current_3v3_2 = (1595.419618 * current_3v3_2 * 3.3 / 4096) - 0.252035868
+        current_5v0 = (801.63197 * current_5v0 * 3.3 / 4096) - 3.163097
+        current_unreg1 = (2407.441267 * current_unreg1 * 3.3 / 4096) - 6.117030991
+        current_unreg2 = (2421.76513 * current_unreg2 * 3.3 / 4096) - 10.1421109
+        current_unreg3 = (1973.436273 * current_unreg3 * 3.3 / 4096) - 9.717381297
+        current_12v = (1567.774583 * current_12v * 3.3 / 4096) - 3.51635074
 
-    reset_date = ""
-    voltage_raw_power = 0
-    current_3v3_1 = 0
-    current_3v3_2 = 0
-    current_5v0 = 0
-    current_unreg1 = 0
-    current_unreg2 = 0
-    current_unreg3 = 0
-    current_12v = 0
-    status_3v3_1 = 0
-    status_3v3_2 = 0
-    status_5v = 0
-    status_unreg1 = 0
-    status_unreg2 = 0
-    status_unreg3 = 0
-    status_12v = 0
-    status_com_pic = 0
-    status_main_pic = 0
+        # Power line status
+        status_3v3_1 = (power_line_status & 0b10000000) >> 7
+        status_3v3_2 = (power_line_status & 0b01000000) >> 6
+        status_5v = (power_line_status & 0b00100000) >> 5
+        status_unreg1 = (power_line_status & 0b00010000) >> 4
+        status_unreg2 = (power_line_status & 0b00001000) >> 3
+        status_unreg3 = (power_line_status & 0b00000100) >> 2
+        status_12v = (power_line_status & 0b00000010) >> 1
+        status_com_pic = (power_line_status & 0b00000001) >> 0
+        status_main_pic = (status_main_pic & 0b00000001) >> 0
+    else:
+        reset_date = ""
+        voltage_raw_power = 0
+        current_3v3_1 = 0
+        current_3v3_2 = 0
+        current_5v0 = 0
+        current_unreg1 = 0
+        current_unreg2 = 0
+        current_unreg3 = 0
+        current_12v = 0
+        status_3v3_1 = 0
+        status_3v3_2 = 0
+        status_5v = 0
+        status_unreg1 = 0
+        status_unreg2 = 0
+        status_unreg3 = 0
+        status_12v = 0
+        status_com_pic = 0
+        status_main_pic = 0
 
     #EPS-1 HK
     timestamp_fab = process_timestamp(timestamp_obc, timestamp_fab)

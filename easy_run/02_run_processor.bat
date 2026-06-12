@@ -19,7 +19,7 @@ echo Input folder: processor\input\unprocessed
 echo DB server: http://127.0.0.1:8000
 echo.
 
-".venv\Scripts\python.exe" run --no-move
+".venv\Scripts\python.exe" run 
 
 echo.
 echo Done. Open the viewer and press Search.

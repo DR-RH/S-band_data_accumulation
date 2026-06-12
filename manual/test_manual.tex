@@ -369,6 +369,7 @@ curl "http://127.0.0.1:8000/adcs-hk?limit=5"
 最初に1回だけ、\path{easy_run/00_setup_all} を実行する。
 このファイルは、\path{processor/}、\path{server/}、\path{downloader/}、\path{decoder_core/} の各 \path{.venv} を作成し、各 \path{requirements.txt} をインストールする。
 Python 3.11 で \path{.venv} を作成する。
+requirements を入れる前に \path{pip}、\path{setuptools}、\path{wheel} を更新し、可能な限り binary wheel を優先してインストールする。
 既に \path{.venv} がある場合は、Python 3.11 の \path{.venv} だけ再利用する。
 Python 3.11 ではない既存 \path{.venv} がある場合は、対象フォルダの \path{.venv} を削除してから再実行する。
 

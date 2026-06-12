@@ -127,11 +127,17 @@ def _decode_chunk(chunk):
         command_name = command_list(full_command)
         # print(chunk)
         # print( f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
-        record = [timestamp, command_name, format(source, "02X"), format(command,"02X"), format(error_value,"02X")]
+        record = [
+            timestamp,
+            format(source, "02X"),
+            format(command, "02X"),
+            command_name,
+            format(error_value, "02X"),
+        ]
 
         return record
     else:
-        return "None"
+        return None
         # write data to file
         # output_lines[j] = (f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
 

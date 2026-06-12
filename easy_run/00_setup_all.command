@@ -57,8 +57,11 @@ setup_env() {
     exit 1
   fi
 
+  echo "Upgrading pip/build tools..."
+  "$venv_py" -m pip install --upgrade pip setuptools wheel
+
   echo "Installing requirements..."
-  "$venv_py" -m pip install -r "$req"
+  "$venv_py" -m pip install --prefer-binary -r "$req"
   echo "[OK] $app"
 }
 

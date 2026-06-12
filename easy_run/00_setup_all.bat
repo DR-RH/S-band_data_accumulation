@@ -87,8 +87,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo Upgrading pip/build tools...
+"%VENV_PY%" -m pip install --upgrade pip setuptools wheel
+if errorlevel 1 (
+  echo [ERROR] Failed to upgrade pip/build tools for %APP%.
+  exit /b 1
+)
+
 echo Installing requirements...
-"%VENV_PY%" -m pip install -r "%REQ%"
+"%VENV_PY%" -m pip install --prefer-binary -r "%REQ%"
 if errorlevel 1 (
   echo [ERROR] Failed to install requirements for %APP%.
   exit /b 1
