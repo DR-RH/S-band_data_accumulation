@@ -33,6 +33,7 @@ except ModuleNotFoundError:
         resolve_gse,
     )
 from pipeline.build_decodable_payloads.process import process_decodable_df
+from pipeline.build_decodable_payloads.upload_queue import retry_pending_uploads
 from pipeline.decode_payloads.decode import run as decode_payloads
 from pipeline.ingest_raw_log.binarize import build_timestamped_binary_from_log
 from pipeline.parse_packets.main import parse_into_df
@@ -71,6 +72,16 @@ def move_to_processed(path: Path) -> Path:
     return destination
 
 
+def retry_pending_uploads_if_enabled(db_server_url: str | None, pending_upload_dir: Path = PENDING_UPLOAD_DIR) -> dict | None:
+    if db_server_url is None:
+        return None
+
+    result = retry_pending_uploads(pending_upload_dir, db_server_url)
+    if result["uploaded"] or result["failed"]:
+        print(f"pending_uploads uploaded={result['uploaded']} failed={result['failed']}")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the full development pipeline.")
     parser.add_argument("input", type=Path, nargs="?", default=UNPROCESSED_INPUT_DIR, help="Raw telemetry log file or directory of .txt logs.")
@@ -83,6 +94,9 @@ def main() -> None:
     parser.add_argument("--no-move", action="store_true", help="Do not move files from input/unprocessed to input/processed after successful processing.")
     args = parser.parse_args()
 
+    db_server_url = None if args.no_db or args.local_db else args.db_server
+    retry_pending_uploads_if_enabled(db_server_url)
+
     paths = sorted(args.input.glob("*.txt")) if args.input.is_dir() else [args.input]
     for path in paths:
         out_dir = run_file(
@@ -90,7 +104,7 @@ def main() -> None:
             args.gse,
             decode=not args.no_decode,
             db_path=args.db if args.local_db and not args.no_db else None,
-            db_server_url=None if args.no_db or args.local_db else args.db_server,
+            db_server_url=db_server_url,
         )
         print(out_dir)
         if not args.no_move and is_unprocessed_input(path):
