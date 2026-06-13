@@ -74,8 +74,18 @@ def write_decodable_df(df:pd.DataFrame,key:str,out_dir:Path, reference_time=None
     data_type = DATATYPE[id_type]
     filename_time = get_filename_time(id_time, reference_time or get_reference_time(df))
     out_dir.mkdir(parents=True, exist_ok=True)
-    save_path = out_dir / f"step4_concat_data_ID_{id_type}_{data_type}_{filename_time}.csv"
+    prefix = f"step4_concat_data_ID_{id_type}_{data_type}_{filename_time}"
+    save_path = out_dir / f"{prefix}.csv"
     df.to_csv(save_path)
+    write_lost_units_report(df, out_dir / f"{prefix}_missing.csv")
+
+
+def write_lost_units_report(df: pd.DataFrame, report_path: Path) -> None:
+    lost_units = df.attrs.get("lost_units") or []
+    if not lost_units:
+        return
+
+    pd.DataFrame(lost_units).to_csv(report_path, index=False)
 
 def write_concat_binaries(
     data_map: Dict[int, Dict],

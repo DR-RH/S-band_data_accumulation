@@ -18,6 +18,26 @@ def test_run_writes_decoded_files_to_explicit_output_dir(tmp_path):
     assert decoded_df["hex"].tolist() == ["0aff"]
 
 
+def test_run_moves_lost_units_report_to_decoded_output_dir(tmp_path):
+    input_dir = tmp_path / "intermediate"
+    output_dir = tmp_path / "decoded"
+    input_dir.mkdir()
+    step4_file = input_dir / "step4_concat_data_ID_000_unassigned_2026-01-01.csv"
+    report_file = input_dir / "step4_concat_data_ID_000_unassigned_2026-01-01_missing.csv"
+    pd.DataFrame({"Data": ["0a"]}).to_csv(step4_file, index=False)
+    pd.DataFrame({"lost_unit_index": [1], "reason": ["missing_prefix_before_sync"]}).to_csv(report_file, index=False)
+
+    run(input_dir, output_dir)
+
+    expected_report = output_dir / f"decoded_{report_file.name}"
+    assert expected_report.exists()
+    assert not report_file.exists()
+    report = pd.read_csv(expected_report)
+    assert report.to_dict("records") == [
+        {"lost_unit_index": 1, "reason": "missing_prefix_before_sync"}
+    ]
+
+
 def test_collect_step4_files_returns_sorted_step4_csvs_only(tmp_path):
     first = tmp_path / "step4_concat_data_ID_001_a.csv"
     second = tmp_path / "step4_concat_data_ID_110_b.csv"

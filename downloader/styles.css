@@ -115,6 +115,46 @@ h1 {
   align-items: end;
 }
 
+.time-filter {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.time-filter .field-title {
+  flex: 0 0 auto;
+  margin-right: 2px;
+}
+
+.time-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 136px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.time-choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.time-choice input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 label {
   display: grid;
   gap: 7px;

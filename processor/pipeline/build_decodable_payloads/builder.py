@@ -31,7 +31,11 @@ def build_decodable_df(
     df = df.reset_index(drop=True)
     buffer = b""
     results = []
+    lost_units = []
+    unit_index = 0
     previous_pkt_no = None
+    previous_ts = None
+    pending_gap = None
 
     decode_unit = config.decode_unit
     sync_code = config.sync_code
@@ -43,9 +47,25 @@ def build_decodable_df(
         ts     = row["Datetime"]
 
         if previous_pkt_no is not None and pkt_no != previous_pkt_no + 1:
+            if pkt_no > previous_pkt_no + 1:
+                pending_gap = {
+                    "lost_unit_index": unit_index,
+                    "previous_packet_no": previous_pkt_no,
+                    "next_packet_no": pkt_no,
+                    "missing_packet_start": previous_pkt_no + 1,
+                    "missing_packet_end": pkt_no - 1,
+                    "missing_packet_count": pkt_no - previous_pkt_no - 1,
+                    "received_time_before_gap": previous_ts,
+                    "received_time_after_gap": ts,
+                    "discarded_buffer_bytes": len(buffer),
+                }
+                unit_index += 1
+            else:
+                pending_gap = None
             buffer = b""
 
         previous_pkt_no = pkt_no
+        previous_ts = ts
 
         buffer += data
 
@@ -56,8 +76,27 @@ def build_decodable_df(
 
             start = pos - sync_code_offset
             if start < 0:
-                # sync codeが途中にかかってる → 次のデータ待ち
-                break
+                # The prefix for this sync was already lost, usually because a
+                # prior packet failed CRC. Skip this incomplete unit and look
+                # for the next sync instead of getting stuck on the same bytes.
+                if pending_gap is not None:
+                    lost_units.append(
+                        build_lost_unit_record(
+                            pending_gap,
+                            lost_unit_index=pending_gap["lost_unit_index"],
+                            reason="missing_prefix_before_sync",
+                            config=config,
+                            decode_unit=decode_unit,
+                            sync_code=sync_code,
+                            sync_code_offset=sync_code_offset,
+                            sync_position=pos,
+                            missing_prefix_bytes=-start,
+                            received_time=ts,
+                        )
+                    )
+                    pending_gap = None
+                buffer = buffer[pos + len(sync_code):]
+                continue
 
             # 同期位置に揃える
             buffer = buffer[start:]
@@ -65,6 +104,23 @@ def build_decodable_df(
             # decode可能かチェック
             if len(buffer) < decode_unit:
                 break
+
+            if pending_gap is not None:
+                lost_units.append(
+                    build_lost_unit_record(
+                        pending_gap,
+                        lost_unit_index=pending_gap["lost_unit_index"],
+                        reason="packet_gap_discarded_decodable_unit",
+                        config=config,
+                        decode_unit=decode_unit,
+                        sync_code=sync_code,
+                        sync_code_offset=sync_code_offset,
+                        sync_position=None,
+                        missing_prefix_bytes=None,
+                        received_time=pending_gap.get("received_time_after_gap"),
+                    )
+                )
+                pending_gap = None
 
             chunk = buffer[:decode_unit]
 
@@ -78,7 +134,54 @@ def build_decodable_df(
                 record["timestamp_adcs"] = extract_timestamp_adcs(chunk)
 
             results.append(record)
+            unit_index += 1
 
             # 次を探すために進める
             buffer = buffer[decode_unit:]
-    return pd.DataFrame(results)
+
+    if pending_gap is not None and pending_gap.get("discarded_buffer_bytes", 0):
+        lost_units.append(
+            build_lost_unit_record(
+                pending_gap,
+                lost_unit_index=pending_gap["lost_unit_index"],
+                reason="packet_gap_discarded_partial_unit",
+                config=config,
+                decode_unit=decode_unit,
+                sync_code=sync_code,
+                sync_code_offset=sync_code_offset,
+                sync_position=None,
+                missing_prefix_bytes=None,
+                received_time=pending_gap.get("received_time_after_gap"),
+            )
+        )
+
+    result_df = pd.DataFrame(results)
+    result_df.attrs["lost_units"] = lost_units
+    return result_df
+
+
+def build_lost_unit_record(
+    pending_gap: dict | None,
+    *,
+    lost_unit_index: int,
+    reason: str,
+    config,
+    decode_unit: int,
+    sync_code: bytes,
+    sync_code_offset: int,
+    sync_position: int | None,
+    missing_prefix_bytes: int | None,
+    received_time,
+) -> dict:
+    return {
+        **(pending_gap or {}),
+        "lost_unit_index": lost_unit_index,
+        "reason": reason,
+        "file_id": config.file_id,
+        "decode_unit": decode_unit,
+        "sync_code": sync_code.hex(),
+        "sync_code_offset": sync_code_offset,
+        "sync_position": sync_position,
+        "missing_prefix_bytes": missing_prefix_bytes,
+        "received_time": received_time,
+    }

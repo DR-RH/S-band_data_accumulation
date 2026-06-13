@@ -29,6 +29,7 @@ def run(folder_name: str | Path, out_dir: str | Path) -> List[Path]:
             logger.warning("Skipping unsupported decode payload file: %s", bin_path)
             continue
         decoder = config.decoder
+        move_lost_units_report(bin_path, output_dir)
         data = read_decodable_data(bin_path)
         if not data:
             logger.info("Skipping empty decode payload file: %s", bin_path)
@@ -40,6 +41,15 @@ def run(folder_name: str | Path, out_dir: str | Path) -> List[Path]:
         written_paths.append(new_path)
 
     return written_paths
+
+
+def move_lost_units_report(bin_path: Path, output_dir: Path) -> Path | None:
+    source = bin_path.with_name(f"{bin_path.stem}_missing.csv")
+    if not source.exists():
+        return None
+
+    destination = output_dir / f"decoded_{source.name}"
+    return source.replace(destination)
 
 
 def read_decodable_data(bin_path):

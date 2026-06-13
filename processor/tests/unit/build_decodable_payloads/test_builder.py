@@ -35,6 +35,80 @@ def test_build_decodable_df_resets_buffer_when_packet_number_jumps():
     assert result.to_dict("records") == [{"Received time": "t4", "Data": "43444546"}]
 
 
+def test_build_decodable_df_resyncs_after_gap_starts_mid_unit():
+    df = pd.DataFrame(
+        [
+            {"Packet no.": 1, "Data": b"ABCXY", "Datetime": "t1"},
+            {"Packet no.": 3, "Data": b"QXY123XY", "Datetime": "t3"},
+        ]
+    )
+    config = SimpleNamespace(file_id="001", decode_unit=5, sync_code=b"XY", sync_code_offset=3)
+
+    result = build_decodable_df(df, missing=[2], config=config)
+
+    assert result.to_dict("records") == [
+        {"Received time": "t1", "Data": "4142435859"},
+        {"Received time": "t3", "Data": "3132335859"},
+    ]
+    assert result.attrs["lost_units"] == [
+        {
+            "lost_unit_index": 1,
+            "reason": "missing_prefix_before_sync",
+            "file_id": "001",
+            "decode_unit": 5,
+            "sync_code": "5859",
+            "sync_code_offset": 3,
+            "sync_position": 1,
+            "missing_prefix_bytes": 2,
+            "received_time": "t3",
+            "previous_packet_no": 1,
+            "next_packet_no": 3,
+            "missing_packet_start": 2,
+            "missing_packet_end": 2,
+            "missing_packet_count": 1,
+            "received_time_before_gap": "t1",
+            "received_time_after_gap": "t3",
+            "discarded_buffer_bytes": 0,
+        }
+    ]
+
+
+def test_build_decodable_df_reports_gap_discarded_unit_when_next_packet_is_aligned():
+    df = pd.DataFrame(
+        [
+            {"Packet no.": 1, "Data": b"AB", "Datetime": "t1"},
+            {"Packet no.": 3, "Data": b"CD", "Datetime": "t3"},
+            {"Packet no.": 4, "Data": b"EF", "Datetime": "t4"},
+        ]
+    )
+    config = SimpleNamespace(file_id="001", decode_unit=4, sync_code=b"", sync_code_offset=0)
+
+    result = build_decodable_df(df, missing=[2], config=config)
+
+    assert result.to_dict("records") == [{"Received time": "t4", "Data": "43444546"}]
+    assert result.attrs["lost_units"] == [
+        {
+            "lost_unit_index": 0,
+            "reason": "packet_gap_discarded_decodable_unit",
+            "file_id": "001",
+            "decode_unit": 4,
+            "sync_code": "",
+            "sync_code_offset": 0,
+            "sync_position": None,
+            "missing_prefix_bytes": None,
+            "received_time": "t3",
+            "previous_packet_no": 1,
+            "next_packet_no": 3,
+            "missing_packet_start": 2,
+            "missing_packet_end": 2,
+            "missing_packet_count": 1,
+            "received_time_before_gap": "t1",
+            "received_time_after_gap": "t3",
+            "discarded_buffer_bytes": 2,
+        }
+    ]
+
+
 def test_build_decodable_df_handles_repeated_packet_number_sequences_in_stream_order():
     df = pd.DataFrame(
         [

@@ -20,13 +20,10 @@ const DEFAULT_RANGE = {
   startTime: "00:00",
   endDate: "2026-12-31",
   endTime: "00:00",
-  receivedStartDate: "",
-  receivedStartTime: "00:00",
-  receivedEndDate: "",
-  receivedEndTime: "23:59",
 };
 const DEFAULT_SHARED_VALUES = {
   ...DEFAULT_RANGE,
+  timeMode: "pic",
   gse: "",
   limit: "1000",
   order: "desc",
@@ -37,10 +34,7 @@ const SHARED_QUERY_FIELDS = [
   "startTime",
   "endDate",
   "endTime",
-  "receivedStartDate",
-  "receivedStartTime",
-  "receivedEndDate",
-  "receivedEndTime",
+  "timeMode",
   "gse",
   "limit",
   "order",
@@ -215,12 +209,13 @@ function queryParams(kind, limitOverride, offsetOverride = 0) {
 
   const start = combineDateTime(data.get("startDate"), data.get("startTime"));
   const end = combineDateTime(data.get("endDate"), data.get("endTime"));
-  const receivedStart = combineDateTime(data.get("receivedStartDate"), data.get("receivedStartTime"));
-  const receivedEnd = combineDateTime(data.get("receivedEndDate"), data.get("receivedEndTime"));
-  if (start) params.set("start", start);
-  if (end) params.set("end", end);
-  if (receivedStart) params.set("received_start", receivedStart);
-  if (receivedEnd) params.set("received_end", receivedEnd);
+  if ((data.get("timeMode") || "pic") === "received") {
+    if (start) params.set("received_start", start);
+    if (end) params.set("received_end", end);
+  } else {
+    if (start) params.set("start", start);
+    if (end) params.set("end", end);
+  }
   if (data.get("gse")) params.set("gse", data.get("gse"));
 
   if (kind === "adcs" && data.get("sampling_type")) {
@@ -396,10 +391,7 @@ function loadCachedFilters() {
     setFormValue(form, "startTime", values.startTime);
     setFormValue(form, "endDate", values.endDate);
     setFormValue(form, "endTime", values.endTime);
-    setFormValue(form, "receivedStartDate", values.receivedStartDate);
-    setFormValue(form, "receivedStartTime", values.receivedStartTime);
-    setFormValue(form, "receivedEndDate", values.receivedEndDate);
-    setFormValue(form, "receivedEndTime", values.receivedEndTime);
+    setFormRadioValue(form, "timeMode", values.timeMode || "pic");
     setFormValue(form, "gse", values.gse || "");
     setFormValue(form, "limit", values.limit || "1000");
     setFormValue(form, "order", values.order || "desc");
@@ -444,7 +436,7 @@ function syncSharedQueryFields(sourceForm) {
   const values = readSharedQueryFields(sourceForm);
   document.querySelectorAll("form[data-form]").forEach((form) => {
     if (form === sourceForm) return;
-    SHARED_QUERY_FIELDS.forEach((name) => setFormValue(form, name, values[name]));
+    SHARED_QUERY_FIELDS.forEach((name) => setSharedFormValue(form, name, values[name]));
   });
 }
 
@@ -464,11 +456,26 @@ function sharedQueryValuesFromCache(cache) {
 }
 
 function pickSharedQueryFields(values) {
+  const migrated = migrateReceivedTimeRange(values);
   return Object.fromEntries(
     SHARED_QUERY_FIELDS
-      .filter((name) => values[name] !== undefined)
-      .map((name) => [name, values[name]])
+      .filter((name) => migrated[name] !== undefined)
+      .map((name) => [name, migrated[name]])
   );
+}
+
+function migrateReceivedTimeRange(values) {
+  if (values.timeMode !== "received") return values;
+  const migrated = { ...values };
+  if (values.receivedStartDate) {
+    migrated.startDate = values.receivedStartDate;
+    migrated.startTime = values.receivedStartTime || "00:00";
+  }
+  if (values.receivedEndDate) {
+    migrated.endDate = values.receivedEndDate;
+    migrated.endTime = values.receivedEndTime || "23:59";
+  }
+  return migrated;
 }
 
 function resetAllQueryState() {
@@ -484,6 +491,23 @@ function resetQueryState(kind) {
 function setFormValue(form, name, value) {
   const field = form.elements[name];
   if (field) field.value = value;
+}
+
+function setFormRadioValue(form, name, value) {
+  const fields = form.elements[name];
+  if (!fields) return;
+  const fieldList = typeof fields.length === "number" ? Array.from(fields) : [fields];
+  fieldList.forEach((field) => {
+    field.checked = field.value === value;
+  });
+}
+
+function setSharedFormValue(form, name, value) {
+  if (name === "timeMode") {
+    setFormRadioValue(form, name, value || "pic");
+    return;
+  }
+  setFormValue(form, name, value);
 }
 
 function setFormChecked(form, name, checked) {

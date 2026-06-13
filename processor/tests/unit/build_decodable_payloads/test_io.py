@@ -33,6 +33,32 @@ def test_write_decodable_df_does_not_print_stdout(tmp_path, monkeypatch, capsys)
     assert captured.out == ""
 
 
+def test_write_decodable_df_writes_lost_units_report(tmp_path, monkeypatch):
+    df = pd.DataFrame([{"Data": "aa"}])
+    df.attrs["lost_units"] = [
+        {
+            "lost_unit_index": 1,
+            "reason": "missing_prefix_before_sync",
+            "missing_packet_start": 2,
+            "missing_packet_end": 2,
+        }
+    ]
+    monkeypatch.setattr(io, "get_filename_time", lambda id_time, reference_time=None: "2026-03-12_1540")
+
+    io.write_decodable_df(df, "1101011001000101", tmp_path)
+
+    out_path = tmp_path / "step4_concat_data_ID_110_main_HK_log_2026-03-12_1540_missing.csv"
+    report = pd.read_csv(out_path)
+    assert report.to_dict("records") == [
+        {
+            "lost_unit_index": 1,
+            "reason": "missing_prefix_before_sync",
+            "missing_packet_start": 2,
+            "missing_packet_end": 2,
+        }
+    ]
+
+
 def test_write_df_writes_legacy_named_csv(tmp_path, monkeypatch):
     df = pd.DataFrame([{"Data": "aa"}])
     monkeypatch.setattr(io, "get_filename_time", lambda id_time, reference_time=None: "2026-03-12_1540")
