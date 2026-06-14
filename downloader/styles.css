@@ -205,22 +205,6 @@ select {
   font-size: 14px;
 }
 
-.checkline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.checkline input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-}
-
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -249,6 +233,10 @@ select {
   display: grid;
   justify-items: end;
   gap: 8px;
+}
+
+.download-mode {
+  width: 132px;
 }
 
 .action {

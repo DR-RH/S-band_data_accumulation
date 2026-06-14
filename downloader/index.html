@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>S-band Downloader</title>
-  <link rel="stylesheet" href="styles.css?v=20260613-time-filter-layout">
+  <link rel="stylesheet" href="styles.css?v=20260614-download-mode">
 </head>
 <body>
   <main class="app-shell">
@@ -92,9 +92,13 @@
           </div>
           <button class="action" data-action="search" data-kind="main">Search</button>
           <div class="download-cell">
-            <label class="checkline">
-              <input name="raw" type="checkbox" form="mainFilters">
-              Raw download
+            <label class="download-mode">
+              Download Mode
+              <select name="downloadMode" form="mainFilters">
+                <option value="data" selected>DATA</option>
+                <option value="raw">Raw</option>
+                <option value="gse">GSE</option>
+              </select>
             </label>
             <button class="action primary" data-action="download" data-kind="main">Download CSV</button>
           </div>
@@ -182,9 +186,13 @@
           </div>
           <button class="action" data-action="search" data-kind="realtime">Search</button>
           <div class="download-cell">
-            <label class="checkline">
-              <input name="raw" type="checkbox" form="realtimeFilters">
-              Raw download
+            <label class="download-mode">
+              Download Mode
+              <select name="downloadMode" form="realtimeFilters">
+                <option value="data" selected>DATA</option>
+                <option value="raw">Raw</option>
+                <option value="gse">GSE</option>
+              </select>
             </label>
             <button class="action primary" data-action="download" data-kind="realtime">Download CSV</button>
           </div>
@@ -279,9 +287,13 @@
           </div>
           <button class="action" data-action="search" data-kind="adcs">Search</button>
           <div class="download-cell">
-            <label class="checkline">
-              <input name="raw" type="checkbox" form="adcsFilters">
-              Raw download
+            <label class="download-mode">
+              Download Mode
+              <select name="downloadMode" form="adcsFilters">
+                <option value="data" selected>DATA</option>
+                <option value="raw">Raw</option>
+                <option value="gse">GSE</option>
+              </select>
             </label>
             <button class="action primary" data-action="download" data-kind="adcs">Download CSV</button>
           </div>
@@ -306,6 +318,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=20260613-time-filter"></script>
+  <script src="app.js?v=20260614-download-mode"></script>
 </body>
 </html>

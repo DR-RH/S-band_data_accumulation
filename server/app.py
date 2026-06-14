@@ -155,6 +155,8 @@ REALTIME_HK_COLUMNS = [
     "timestamp_obc_unix",
     "data_hex",
 ]
+GSE_REPORT_STATION_ORDER = ["ISAS", "Kyutech", "unknown"]
+GSE_REPORT_FIELDS = ["packet_id", "received_time"]
 
 
 def time_options(step_minutes: int = 30) -> str:
@@ -826,6 +828,7 @@ def download_main_hk_csv(
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
+    gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
@@ -836,6 +839,8 @@ def download_main_hk_csv(
         ensure_payload_schema(conn, MAIN_HK_TABLE)
         rows = select_main_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
 
+    if gse_report:
+        return gse_report_csv_response("main_hk", gse, rows)
     if raw:
         return csv_response("raw_main_hk_payloads.csv", MAIN_HK_COLUMNS, rows)
     return decoded_csv_response(
@@ -857,6 +862,7 @@ def download_real_time_hk_csv(
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
+    gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
@@ -867,6 +873,8 @@ def download_real_time_hk_csv(
         require_table(conn, REALTIME_HK_TABLE)
         rows = select_realtime_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
 
+    if gse_report:
+        return gse_report_csv_response("real_time_hk", gse, rows)
     if raw:
         return csv_response("raw_real_time_hk_payloads.csv", REALTIME_HK_COLUMNS, rows)
     return decoded_csv_response(
@@ -893,6 +901,7 @@ def download_adcs_hk_csv(
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
+    gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
@@ -903,6 +912,8 @@ def download_adcs_hk_csv(
         ensure_payload_schema(conn, ADCS_HK_TABLE)
         rows = select_adcs_hk_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end, order, limit, offset)
 
+    if gse_report:
+        return gse_report_csv_response("adcs_hk", gse, rows)
     if raw:
         return csv_response("raw_adcs_hk_payloads.csv", ADCS_HK_COLUMNS, rows)
     return decoded_csv_response(
@@ -1325,13 +1336,20 @@ def csv_response(filename: str, columns: list[str], rows):
     writer = csv.DictWriter(stream, fieldnames=columns)
     writer.writeheader()
     for row in rows:
-        writer.writerow({column: row[column] for column in columns})
+        writer.writerow({column: row_value(row, column) for column in columns})
 
     return StreamingResponse(
         iter([stream.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def row_value(row, column: str):
+    try:
+        return row[column]
+    except (KeyError, IndexError):
+        return ""
 
 
 def decoded_csv_response(filename: str, decoded_rows: list[dict]):
@@ -1345,8 +1363,50 @@ def decoded_csv_response(filename: str, decoded_rows: list[dict]):
     )
 
 
+def gse_report_csv_response(dataset: str, gse: str | None, rows):
+    columns, report_rows = build_gse_report_rows(rows, gse)
+    return csv_response(gse_report_filename(dataset, gse), columns, report_rows)
+
+
+def build_gse_report_rows(rows, requested_gse: str | None) -> tuple[list[str], list[dict]]:
+    grouped: dict[str, dict] = {}
+    station_names = {requested_gse} if requested_gse else {"ISAS", "Kyutech"}
+
+    for row in rows:
+        unit_id = row["unit_id"]
+        station = row["gse"] or "unknown"
+        station_names.add(station)
+        report_row = grouped.setdefault(unit_id, {"unit_id": unit_id})
+        prefix = safe_column_prefix(station)
+        report_row[f"{prefix}_packet_id"] = row["packet_id"]
+        report_row[f"{prefix}_received_time"] = row["received_time"]
+
+    stations = ordered_station_names(station_names)
+    columns = ["unit_id"]
+    for station in stations:
+        prefix = safe_column_prefix(station)
+        columns.extend(f"{prefix}_{field}" for field in GSE_REPORT_FIELDS)
+
+    return columns, list(grouped.values())
+
+
+def ordered_station_names(station_names: set[str]) -> list[str]:
+    ordered = [station for station in GSE_REPORT_STATION_ORDER if station in station_names]
+    ordered.extend(sorted(station for station in station_names if station not in GSE_REPORT_STATION_ORDER))
+    return ordered
+
+
 def decoded_filename(dataset: str, decoder: str) -> str:
     return f"decoded_{dataset}_{safe_filename_part(decoder)}.csv"
+
+
+def gse_report_filename(dataset: str, gse: str | None) -> str:
+    station = safe_filename_part(gse or "all_gse")
+    return f"gse_reception_{dataset}_{station}.csv"
+
+
+def safe_column_prefix(value: str) -> str:
+    return safe_filename_part(value)
 
 
 def safe_filename_part(value: str) -> str:

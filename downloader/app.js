@@ -21,6 +21,7 @@ const DEFAULT_RANGE = {
   endDate: "2026-12-31",
   endTime: "00:00",
 };
+const DEFAULT_DOWNLOAD_MODE = "data";
 const DEFAULT_SHARED_VALUES = {
   ...DEFAULT_RANGE,
   timeMode: "pic",
@@ -196,12 +197,12 @@ function readUrl(kind, limitOverride, offsetOverride = 0) {
   return `${cleanApiBase()}${path}?${queryParams(kind, limitOverride, offsetOverride)}`;
 }
 
-function downloadUrl(kind) {
+function downloadUrl(kind, extraParams = {}) {
   const path = datasetDownloadPath(kind);
-  return `${cleanApiBase()}${path}?${queryParams(kind)}`;
+  return `${cleanApiBase()}${path}?${queryParams(kind, undefined, 0, extraParams)}`;
 }
 
-function queryParams(kind, limitOverride, offsetOverride = 0) {
+function queryParams(kind, limitOverride, offsetOverride = 0, extraParams = {}) {
   saveCachedFilters();
   const form = document.querySelector(`[data-form='${kind}']`);
   const data = new FormData(form);
@@ -226,7 +227,16 @@ function queryParams(kind, limitOverride, offsetOverride = 0) {
   params.set("limit", limitOverride || data.get("limit") || "1000");
   params.set("offset", String(offsetOverride));
   params.set("decoder", data.get("decoder") || "latest");
-  params.set("raw", data.get("raw") === "on" ? "1" : "0");
+  const downloadMode = data.get("downloadMode") || DEFAULT_DOWNLOAD_MODE;
+  params.set("raw", downloadMode === "raw" ? "1" : "0");
+  params.set("gse_report", downloadMode === "gse" ? "1" : "0");
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      params.delete(key);
+      return;
+    }
+    params.set(key, value);
+  });
 
   return params.toString();
 }
@@ -397,7 +407,7 @@ function loadCachedFilters() {
     setFormValue(form, "order", values.order || "desc");
     setFormValue(form, "decoder", values.decoder || "latest");
     setFormValue(form, "sampling_type", values.sampling_type || "");
-    setFormChecked(form, "raw", values.raw === "1");
+    setFormValue(form, "downloadMode", resolveDownloadMode(values));
   });
 }
 
@@ -414,7 +424,7 @@ function saveCachedFilters() {
       order: data.get("order") || "desc",
       decoder: data.get("decoder") || "latest",
       sampling_type: data.get("sampling_type") || "",
-      raw: data.get("raw") === "on" ? "1" : "0",
+      downloadMode: data.get("downloadMode") || DEFAULT_DOWNLOAD_MODE,
     };
   });
   localStorage.setItem(FILTER_CACHE_KEY, JSON.stringify(cache));
@@ -478,6 +488,13 @@ function migrateReceivedTimeRange(values) {
   return migrated;
 }
 
+function resolveDownloadMode(values) {
+  if (values.downloadMode) return values.downloadMode;
+  if (values.gseReport === "1") return "gse";
+  if (values.raw === "1") return "raw";
+  return DEFAULT_DOWNLOAD_MODE;
+}
+
 function resetAllQueryState() {
   document.querySelectorAll("form[data-form]").forEach((form) => resetQueryState(form.dataset.form));
 }
@@ -508,9 +525,4 @@ function setSharedFormValue(form, name, value) {
     return;
   }
   setFormValue(form, name, value);
-}
-
-function setFormChecked(form, name, checked) {
-  const field = form.elements[name];
-  if (field) field.checked = checked;
 }
