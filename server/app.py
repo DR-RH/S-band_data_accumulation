@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import json
+import math
 import sys
 from io import StringIO
 from typing import Any
@@ -21,6 +23,7 @@ from db import (
     store_main_hk_payloads,
     store_realtime_hk_payloads,
 )
+from raw_prefilters import RawPrefilter, build_main_hk_raw_prefilter
 from settings import db_path, decoder_dir
 from sqlite_utils import connect, require_table
 
@@ -157,6 +160,7 @@ REALTIME_HK_COLUMNS = [
 ]
 GSE_REPORT_STATION_ORDER = ["ISAS", "Kyutech", "unknown"]
 GSE_REPORT_FIELDS = ["packet_id", "received_time"]
+DECODE_FILTER_SCAN_CHUNK_SIZE = 500
 
 
 def time_options(step_minutes: int = 30) -> str:
@@ -739,17 +743,68 @@ def main_hk(
     end: str | None = Query(None, description="Optional end timestamp_obc filter, ISO format."),
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
+    value_columns: str | None = Query(None, description="JSON encoded decoded value columns to include."),
+    decoder: str = Query("latest", description="Decoder version set for decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum rows to return."),
+    exact_total: bool = Query(True, description="Scan all decoded matches to return an exact total."),
+    limit: int = Query(100, ge=1, le=100000, description="Maximum rows to return."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    requested_columns = parse_value_columns(value_columns)
     with connect() as conn:
         require_table(conn, MAIN_HK_TABLE)
         ensure_payload_schema(conn, MAIN_HK_TABLE)
-        rows = select_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
-        total = count_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
+        if decoded_filters:
+            raw_prefilter = build_main_hk_raw_prefilter(decoded_filters)
+            if raw_prefilter.supported_count == len(decoded_filters):
+                rows, total = select_decoded_page_rows(
+                    conn=conn,
+                    selector=select_main_hk_decode_candidate_rows,
+                    selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                    count=count_main_hk_preview_rows,
+                    count_args=(gse, packet_id, start, end, received_start, received_end),
+                    decoder=decoder,
+                    decode_rows=decode_main_hk_rows,
+                    value_columns=unique_elements(unique_filter_elements(decoded_filters), requested_columns),
+                    limit=limit,
+                    offset=offset,
+                    raw_prefilter=raw_prefilter,
+                    value_filters=decoded_filters,
+                )
+            else:
+                rows, total = select_decoded_preview_rows(
+                    conn=conn,
+                    selector=select_main_hk_decode_candidate_rows,
+                    selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                    decoder=decoder,
+                    decode_rows=decode_main_hk_rows,
+                    value_filters=decoded_filters,
+                    value_columns=requested_columns,
+                    exact_total=exact_total,
+                    limit=limit,
+                    offset=offset,
+                    raw_prefilter=raw_prefilter,
+                )
+        elif requested_columns:
+            rows, total = select_decoded_page_rows(
+                conn=conn,
+                selector=select_main_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                count=count_main_hk_preview_rows,
+                count_args=(gse, packet_id, start, end, received_start, received_end),
+                decoder=decoder,
+                decode_rows=decode_main_hk_rows,
+                value_columns=requested_columns,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = [dict(row) for row in select_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)]
+            total = count_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
 
-    return {"rows": [dict(row) for row in rows], "limit": limit, "offset": offset, "total": total}
+    return {"rows": rows, "limit": limit, "offset": offset, "total": total}
 
 
 @app.get(
@@ -765,17 +820,50 @@ def real_time_hk(
     end: str | None = Query(None, description="Optional end timestamp_obc filter, ISO format."),
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
+    value_columns: str | None = Query(None, description="JSON encoded decoded value columns to include."),
+    decoder: str = Query("latest", description="Decoder version set for decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum rows to return."),
+    exact_total: bool = Query(True, description="Scan all decoded matches to return an exact total."),
+    limit: int = Query(100, ge=1, le=100000, description="Maximum rows to return."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    requested_columns = parse_value_columns(value_columns)
     with connect() as conn:
         ensure_payload_schema(conn, REALTIME_HK_TABLE)
         require_table(conn, REALTIME_HK_TABLE)
-        rows = select_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
-        total = count_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
+        if decoded_filters:
+            rows, total = select_decoded_preview_rows(
+                conn=conn,
+                selector=select_realtime_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                decoder=decoder,
+                decode_rows=decode_realtime_hk_rows,
+                value_filters=decoded_filters,
+                value_columns=requested_columns,
+                exact_total=exact_total,
+                limit=limit,
+                offset=offset,
+            )
+        elif requested_columns:
+            rows, total = select_decoded_page_rows(
+                conn=conn,
+                selector=select_realtime_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                count=count_realtime_hk_preview_rows,
+                count_args=(gse, packet_id, start, end, received_start, received_end),
+                decoder=decoder,
+                decode_rows=decode_realtime_hk_rows,
+                value_columns=requested_columns,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = [dict(row) for row in select_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)]
+            total = count_realtime_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
 
-    return {"rows": [dict(row) for row in rows], "limit": limit, "offset": offset, "total": total}
+    return {"rows": rows, "limit": limit, "offset": offset, "total": total}
 
 
 @app.get(
@@ -796,18 +884,51 @@ def adcs_hk(
     end: str | None = Query(None, description="Optional end timestamp_adcs filter, ISO format."),
     received_start: str | None = Query(None, description="Optional start received_time filter, ISO format."),
     received_end: str | None = Query(None, description="Optional end received_time filter, ISO format."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
+    value_columns: str | None = Query(None, description="JSON encoded decoded value columns to include."),
+    decoder: str = Query("latest", description="Decoder version set for decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum rows to return."),
+    exact_total: bool = Query(True, description="Scan all decoded matches to return an exact total."),
+    limit: int = Query(100, ge=1, le=100000, description="Maximum rows to return."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    requested_columns = parse_value_columns(value_columns)
     with connect() as conn:
         require_table(conn, ADCS_HK_TABLE)
         ensure_payload_schema(conn, ADCS_HK_TABLE)
-        rows = select_adcs_hk_preview_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end, order, limit, offset)
-        total = count_adcs_hk_preview_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end)
+        if decoded_filters:
+            rows, total = select_decoded_preview_rows(
+                conn=conn,
+                selector=select_adcs_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, sampling_type, start, end, received_start, received_end, order),
+                decoder=decoder,
+                decode_rows=decode_adcs_hk_rows,
+                value_filters=decoded_filters,
+                value_columns=requested_columns,
+                exact_total=exact_total,
+                limit=limit,
+                offset=offset,
+            )
+        elif requested_columns:
+            rows, total = select_decoded_page_rows(
+                conn=conn,
+                selector=select_adcs_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, sampling_type, start, end, received_start, received_end, order),
+                count=count_adcs_hk_preview_rows,
+                count_args=(gse, packet_id, sampling_type, start, end, received_start, received_end),
+                decoder=decoder,
+                decode_rows=decode_adcs_hk_rows,
+                value_columns=requested_columns,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = [dict(row) for row in select_adcs_hk_preview_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end, order, limit, offset)]
+            total = count_adcs_hk_preview_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end)
 
     return {
-        "rows": [dict(row) for row in rows],
+        "rows": rows,
         "sampling_type": sampling_type,
         "limit": limit,
         "offset": offset,
@@ -830,14 +951,54 @@ def download_main_hk_csv(
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
     gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    decoded_rows = None
     with connect() as conn:
         require_table(conn, MAIN_HK_TABLE)
         ensure_payload_schema(conn, MAIN_HK_TABLE)
-        rows = select_main_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
+        if decoded_filters:
+            raw_prefilter = build_main_hk_raw_prefilter(decoded_filters)
+            if raw_prefilter.supported_count == len(decoded_filters):
+                rows = select_main_hk_rows(
+                    conn,
+                    gse,
+                    packet_id,
+                    start,
+                    end,
+                    received_start,
+                    received_end,
+                    order,
+                    limit,
+                    offset,
+                    raw_prefilter,
+                )
+                decoded_rows = decode_main_hk_rows(rows, decoder)
+                filtered_pairs = [
+                    (row, decoded_row)
+                    for row, decoded_row in zip(rows, decoded_rows)
+                    if decoded_row_matches_filters(decoded_row, decoded_filters)
+                ]
+                rows = [row for row, _ in filtered_pairs]
+                decoded_rows = [decoded_row for _, decoded_row in filtered_pairs]
+            else:
+                rows, decoded_rows = select_decoded_download_rows(
+                    conn=conn,
+                    selector=select_main_hk_rows,
+                    selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                    decoder=decoder,
+                    decode_rows=decode_main_hk_rows,
+                    value_filters=decoded_filters,
+                    limit=limit,
+                    offset=offset,
+                    raw_prefilter=raw_prefilter,
+                )
+        else:
+            rows = select_main_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
 
     if gse_report:
         return gse_report_csv_response("main_hk", gse, rows)
@@ -845,7 +1006,7 @@ def download_main_hk_csv(
         return csv_response("raw_main_hk_payloads.csv", MAIN_HK_COLUMNS, rows)
     return decoded_csv_response(
         decoded_filename("main_hk", decoder),
-        decode_main_hk_rows(rows, decoder),
+        decoded_rows if decoded_rows is not None else decode_main_hk_rows(rows, decoder),
     )
 
 
@@ -864,14 +1025,29 @@ def download_real_time_hk_csv(
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
     gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    decoded_rows = None
     with connect() as conn:
         ensure_payload_schema(conn, REALTIME_HK_TABLE)
         require_table(conn, REALTIME_HK_TABLE)
-        rows = select_realtime_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
+        if decoded_filters:
+            rows, decoded_rows = select_decoded_download_rows(
+                conn=conn,
+                selector=select_realtime_hk_rows,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                decoder=decoder,
+                decode_rows=decode_realtime_hk_rows,
+                value_filters=decoded_filters,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = select_realtime_hk_rows(conn, gse, packet_id, start, end, received_start, received_end, order, limit, offset)
 
     if gse_report:
         return gse_report_csv_response("real_time_hk", gse, rows)
@@ -879,7 +1055,7 @@ def download_real_time_hk_csv(
         return csv_response("raw_real_time_hk_payloads.csv", REALTIME_HK_COLUMNS, rows)
     return decoded_csv_response(
         decoded_filename("real_time_hk", decoder),
-        decode_realtime_hk_rows(rows, decoder),
+        decoded_rows if decoded_rows is not None else decode_realtime_hk_rows(rows, decoder),
     )
 
 
@@ -903,14 +1079,29 @@ def download_adcs_hk_csv(
     raw: bool = Query(False, description="Download raw payload rows instead of decoded rows."),
     gse_report: bool = Query(False, description="Download compact GSE reception report rows."),
     decoder: str = Query("latest", description="Decoder version set for decoded download."),
+    value_filters: str | None = Query(None, description="JSON encoded decoded value filters."),
     order: str = Query("desc", pattern="^(asc|desc)$", description="Timestamp sort order."),
     limit: int = Query(10000, ge=1, le=100000, description="Maximum rows to download."),
     offset: int = Query(0, ge=0, description="Rows to skip for pagination."),
 ):
+    decoded_filters = parse_value_filters(value_filters)
+    decoded_rows = None
     with connect() as conn:
         require_table(conn, ADCS_HK_TABLE)
         ensure_payload_schema(conn, ADCS_HK_TABLE)
-        rows = select_adcs_hk_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end, order, limit, offset)
+        if decoded_filters:
+            rows, decoded_rows = select_decoded_download_rows(
+                conn=conn,
+                selector=select_adcs_hk_rows,
+                selector_args=(gse, packet_id, sampling_type, start, end, received_start, received_end, order),
+                decoder=decoder,
+                decode_rows=decode_adcs_hk_rows,
+                value_filters=decoded_filters,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = select_adcs_hk_rows(conn, gse, packet_id, sampling_type, start, end, received_start, received_end, order, limit, offset)
 
     if gse_report:
         return gse_report_csv_response("adcs_hk", gse, rows)
@@ -918,7 +1109,7 @@ def download_adcs_hk_csv(
         return csv_response("raw_adcs_hk_payloads.csv", ADCS_HK_COLUMNS, rows)
     return decoded_csv_response(
         decoded_filename("adcs_hk", decoder),
-        decode_adcs_hk_rows(rows, decoder),
+        decoded_rows if decoded_rows is not None else decode_adcs_hk_rows(rows, decoder),
     )
 
 
@@ -966,6 +1157,7 @@ def select_main_hk_rows(
     order: str,
     limit: int,
     offset: int,
+    raw_prefilter: RawPrefilter | None = None,
 ):
     where, params = build_filters(
         gse=gse,
@@ -975,6 +1167,8 @@ def select_main_hk_rows(
         received_start=received_start,
         received_end=received_end,
         timestamp_column="timestamp_obc",
+        extra_clauses=raw_prefilter.clauses if raw_prefilter else None,
+        extra_params=raw_prefilter.params if raw_prefilter else None,
     )
     direction = sql_order_direction(order)
     params.extend([limit, offset])
@@ -1032,6 +1226,52 @@ def select_main_hk_preview_rows(
     ).fetchall()
 
 
+def select_main_hk_decode_candidate_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+    order: str,
+    limit: int,
+    offset: int,
+    raw_prefilter: RawPrefilter | None = None,
+):
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_obc",
+        extra_clauses=raw_prefilter.clauses if raw_prefilter else None,
+        extra_params=raw_prefilter.params if raw_prefilter else None,
+    )
+    direction = sql_order_direction(order)
+    params.extend([limit, offset])
+    return conn.execute(
+        f"""
+        SELECT
+            unit_id,
+            GROUP_CONCAT(DISTINCT gse) AS gse,
+            MIN(packet_id) AS packet_id,
+            MIN(received_time) AS received_time,
+            MIN(timestamp_obc) AS timestamp_obc,
+            MIN(timestamp_obc_unix) AS sort_timestamp,
+            MIN(data_hex) AS data_hex
+        FROM {MAIN_HK_TABLE}
+        {where}
+        GROUP BY unit_id
+        ORDER BY sort_timestamp {direction}
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    ).fetchall()
+
+
 def count_main_hk_preview_rows(
     conn,
     gse: str | None,
@@ -1040,6 +1280,7 @@ def count_main_hk_preview_rows(
     end: str | None,
     received_start: str | None,
     received_end: str | None,
+    raw_prefilter: RawPrefilter | None = None,
 ) -> int:
     where, params = build_filters(
         gse=gse,
@@ -1049,6 +1290,8 @@ def count_main_hk_preview_rows(
         received_start=received_start,
         received_end=received_end,
         timestamp_column="timestamp_obc",
+        extra_clauses=raw_prefilter.clauses if raw_prefilter else None,
+        extra_params=raw_prefilter.params if raw_prefilter else None,
     )
     return conn.execute(
         f"""
@@ -1130,6 +1373,49 @@ def select_realtime_hk_preview_rows(
             MIN(received_time) AS received_time,
             MIN(timestamp_obc) AS timestamp_obc,
             MIN(timestamp_obc_unix) AS sort_timestamp
+        FROM {REALTIME_HK_TABLE}
+        {where}
+        GROUP BY unit_id
+        ORDER BY sort_timestamp {direction}
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    ).fetchall()
+
+
+def select_realtime_hk_decode_candidate_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+    order: str,
+    limit: int,
+    offset: int,
+):
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_obc",
+    )
+    direction = sql_order_direction(order)
+    params.extend([limit, offset])
+    return conn.execute(
+        f"""
+        SELECT
+            unit_id,
+            GROUP_CONCAT(DISTINCT gse) AS gse,
+            MIN(packet_id) AS packet_id,
+            MIN(received_time) AS received_time,
+            MIN(timestamp_obc) AS timestamp_obc,
+            MIN(timestamp_obc_unix) AS sort_timestamp,
+            MIN(data_hex) AS data_hex
         FROM {REALTIME_HK_TABLE}
         {where}
         GROUP BY unit_id
@@ -1253,6 +1539,52 @@ def select_adcs_hk_preview_rows(
     ).fetchall()
 
 
+def select_adcs_hk_decode_candidate_rows(
+    conn,
+    gse: str | None,
+    packet_id: str | None,
+    sampling_type: str | None,
+    start: str | None,
+    end: str | None,
+    received_start: str | None,
+    received_end: str | None,
+    order: str,
+    limit: int,
+    offset: int,
+):
+    where, params = build_filters(
+        gse=gse,
+        packet_id=packet_id,
+        sampling_type=sampling_type,
+        start=start,
+        end=end,
+        received_start=received_start,
+        received_end=received_end,
+        timestamp_column="timestamp_adcs",
+    )
+    direction = sql_order_direction(order)
+    params.extend([limit, offset])
+    return conn.execute(
+        f"""
+        SELECT
+            unit_id,
+            GROUP_CONCAT(DISTINCT gse) AS gse,
+            MIN(packet_id) AS packet_id,
+            MIN(sampling_type) AS sampling_type,
+            MIN(received_time) AS received_time,
+            MIN(timestamp_adcs) AS timestamp_adcs,
+            MIN(timestamp_adcs_unix) AS sort_timestamp,
+            MIN(data_hex) AS data_hex
+        FROM {ADCS_HK_TABLE}
+        {where}
+        GROUP BY unit_id
+        ORDER BY sort_timestamp {direction}
+        LIMIT ? OFFSET ?
+        """,
+        params,
+    ).fetchall()
+
+
 def count_adcs_hk_preview_rows(
     conn,
     gse: str | None,
@@ -1286,6 +1618,267 @@ def count_adcs_hk_preview_rows(
     ).fetchone()[0]
 
 
+def parse_value_filters(value_filters: str | None) -> list[dict[str, Any]]:
+    if not value_filters:
+        return []
+    try:
+        decoded = json.loads(value_filters)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid value_filters JSON: {exc.msg}") from exc
+    if not isinstance(decoded, list):
+        raise HTTPException(status_code=400, detail="value_filters must be a JSON array.")
+
+    filters: list[dict[str, Any]] = []
+    for item in decoded:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Each value filter must be an object.")
+        element = str(item.get("element") or "").strip()
+        if not element:
+            continue
+        lower = parse_filter_bound(item.get("lower"), "lower", element)
+        upper = parse_filter_bound(item.get("upper"), "upper", element)
+        if lower is None and upper is None:
+            continue
+        if lower is not None and upper is not None and lower > upper:
+            lower, upper = upper, lower
+        filters.append({"element": element, "lower": lower, "upper": upper})
+    return filters
+
+
+def parse_value_columns(value_columns: str | None) -> list[str]:
+    if not value_columns:
+        return []
+    try:
+        decoded = json.loads(value_columns)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid value_columns JSON: {exc.msg}") from exc
+    if not isinstance(decoded, list):
+        raise HTTPException(status_code=400, detail="value_columns must be a JSON array.")
+
+    columns: list[str] = []
+    for item in decoded:
+        column = str(item or "").strip()
+        if column and column != "row_index" and column not in columns:
+            columns.append(column)
+    return columns
+
+
+def parse_filter_bound(value: Any, field: str, element: str) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        bound = float(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"value_filters {field} for '{element}' must be numeric.",
+        ) from exc
+    if not math.isfinite(bound):
+        raise HTTPException(
+            status_code=400,
+            detail=f"value_filters {field} for '{element}' must be finite.",
+        )
+    return bound
+
+
+def select_decoded_preview_rows(
+    *,
+    conn,
+    selector,
+    selector_args: tuple,
+    decoder: str,
+    decode_rows,
+    value_filters: list[dict[str, Any]],
+    value_columns: list[str],
+    exact_total: bool,
+    limit: int,
+    offset: int,
+    raw_prefilter: RawPrefilter | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    require_latest_decoder(decoder)
+    selected_elements = unique_elements(unique_filter_elements(value_filters), value_columns)
+    matched_rows: list[dict[str, Any]] = []
+    matched_total = 0
+    candidate_offset = 0
+
+    while True:
+        candidates = select_decoded_candidates(
+            selector,
+            conn,
+            selector_args,
+            DECODE_FILTER_SCAN_CHUNK_SIZE,
+            candidate_offset,
+            raw_prefilter,
+        )
+        if not candidates:
+            break
+
+        decoded_candidates = decode_rows_aligned(candidates, decoder, decode_rows)
+        for candidate, decoded_candidate in zip(candidates, decoded_candidates):
+            if not decoded_row_matches_filters(decoded_candidate, value_filters):
+                continue
+            if matched_total >= offset and len(matched_rows) < limit:
+                matched_rows.append(build_decoded_preview_row(candidate, decoded_candidate, selected_elements))
+            matched_total += 1
+            if not exact_total and len(matched_rows) >= limit:
+                return matched_rows, matched_total
+
+        candidate_offset += len(candidates)
+
+    return matched_rows, matched_total
+
+
+def select_decoded_page_rows(
+    *,
+    conn,
+    selector,
+    selector_args: tuple,
+    count,
+    count_args: tuple,
+    decoder: str,
+    decode_rows,
+    value_columns: list[str],
+    limit: int,
+    offset: int,
+    raw_prefilter: RawPrefilter | None = None,
+    value_filters: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    require_latest_decoder(decoder)
+    candidates = select_decoded_candidates(selector, conn, selector_args, limit, offset, raw_prefilter)
+    decoded_candidates = decode_rows_aligned(candidates, decoder, decode_rows)
+    rows = []
+    for candidate, decoded_candidate in zip(candidates, decoded_candidates):
+        if value_filters is not None and not decoded_row_matches_filters(decoded_candidate, value_filters):
+            continue
+        rows.append(build_decoded_preview_row(candidate, decoded_candidate, value_columns))
+    if raw_prefilter is None:
+        return rows, count(conn, *count_args)
+    return rows, count(conn, *count_args, raw_prefilter)
+
+
+def select_decoded_download_rows(
+    *,
+    conn,
+    selector,
+    selector_args: tuple,
+    decoder: str,
+    decode_rows,
+    value_filters: list[dict[str, Any]],
+    limit: int,
+    offset: int,
+    raw_prefilter: RawPrefilter | None = None,
+) -> tuple[list[Any], list[dict[str, Any]]]:
+    require_latest_decoder(decoder)
+    filtered_rows: list[Any] = []
+    filtered_decoded_rows: list[dict[str, Any]] = []
+    matched_total = 0
+    candidate_offset = 0
+
+    while len(filtered_rows) < limit:
+        candidates = select_decoded_candidates(
+            selector,
+            conn,
+            selector_args,
+            DECODE_FILTER_SCAN_CHUNK_SIZE,
+            candidate_offset,
+            raw_prefilter,
+        )
+        if not candidates:
+            break
+
+        decoded_candidates = decode_rows_aligned(candidates, decoder, decode_rows)
+        for candidate, decoded_candidate in zip(candidates, decoded_candidates):
+            if not decoded_row_matches_filters(decoded_candidate, value_filters):
+                continue
+            if matched_total >= offset and len(filtered_rows) < limit:
+                filtered_rows.append(candidate)
+                filtered_decoded_rows.append(decoded_candidate)
+            matched_total += 1
+
+        candidate_offset += len(candidates)
+
+    return filtered_rows, filtered_decoded_rows
+
+
+def select_decoded_candidates(selector, conn, selector_args: tuple, limit: int, offset: int, raw_prefilter: RawPrefilter | None):
+    if raw_prefilter is None:
+        return selector(conn, *selector_args, limit, offset)
+    return selector(conn, *selector_args, limit, offset, raw_prefilter)
+
+
+def unique_filter_elements(value_filters: list[dict[str, Any]]) -> list[str]:
+    elements: list[str] = []
+    for value_filter in value_filters:
+        element = value_filter["element"]
+        if element not in elements:
+            elements.append(element)
+    return elements
+
+
+def unique_elements(*element_groups: list[str]) -> list[str]:
+    elements: list[str] = []
+    for element_group in element_groups:
+        for element in element_group:
+            if element not in elements:
+                elements.append(element)
+    return elements
+
+
+def decode_rows_aligned(rows, decoder: str, decode_rows) -> list[dict[str, Any]]:
+    try:
+        decoded_rows = decode_rows(rows, decoder)
+    except HTTPException:
+        raise
+    except Exception:
+        return [decode_single_row(row, decoder, decode_rows) for row in rows]
+    if len(decoded_rows) == len(rows):
+        return decoded_rows
+    return [decode_single_row(row, decoder, decode_rows) for row in rows]
+
+
+def decode_single_row(row, decoder: str, decode_rows) -> dict[str, Any]:
+    try:
+        decoded_rows = decode_rows([row], decoder)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Failed to decode telemetry row.") from exc
+    return decoded_rows[0] if decoded_rows else {}
+
+
+def decoded_row_matches_filters(decoded_row: dict[str, Any], value_filters: list[dict[str, Any]]) -> bool:
+    for value_filter in value_filters:
+        numeric = numeric_decoded_value(decoded_row.get(value_filter["element"]))
+        if numeric is None:
+            return False
+        lower = value_filter["lower"]
+        upper = value_filter["upper"]
+        if lower is not None and numeric < lower:
+            return False
+        if upper is not None and numeric > upper:
+            return False
+    return True
+
+
+def numeric_decoded_value(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    return numeric if math.isfinite(numeric) else None
+
+
+def build_decoded_preview_row(row, decoded_row: dict[str, Any], selected_elements: list[str]) -> dict[str, Any]:
+    preview_row = dict(row)
+    preview_row.pop("data_hex", None)
+    for element in selected_elements:
+        if element not in preview_row:
+            preview_row[element] = decoded_row.get(element, "")
+    return preview_row
+
+
 def build_filters(
     *,
     gse: str | None = None,
@@ -1296,6 +1889,8 @@ def build_filters(
     received_start: str | None = None,
     received_end: str | None = None,
     timestamp_column: str,
+    extra_clauses: list[str] | None = None,
+    extra_params: list[object] | None = None,
 ):
     clauses = []
     params: list[object] = []
@@ -1321,6 +1916,9 @@ def build_filters(
     if received_end is not None:
         clauses.append("received_time <= ?")
         params.append(received_end)
+    if extra_clauses:
+        clauses.extend(extra_clauses)
+        params.extend(extra_params or [])
 
     if not clauses:
         return "", params
@@ -1444,7 +2042,7 @@ def require_latest_decoder(decoder: str) -> None:
         return
     raise HTTPException(
         status_code=501,
-        detail=f"Decoded download for decoder version '{decoder}' is not implemented yet.",
+        detail=f"Decoded values for decoder version '{decoder}' are not implemented yet.",
     )
 
 

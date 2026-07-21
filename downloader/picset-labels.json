@@ -1,0 +1,20 @@
+{
+  "pic_sets": {
+    "main_reset": "Reset HK",
+    "main_eps": "EPS HK",
+    "main_adb": "ADB HK",
+    "main_embedded_adcs": "ADCS HK",
+    "main_com": "COM HK",
+    "main_obc": "OBC / Main HK",
+    "realtime_main": "Main HK columns",
+    "realtime_com": "Realtime COM only",
+    "adcs_boot": "Boot / command status",
+    "adcs_orbit": "Time / GPS / orbit",
+    "adcs_attitude": "Attitude determination",
+    "adcs_command": "Command / control",
+    "adcs_wheel": "Reaction wheel / motor",
+    "adcs_tracker": "Star tracker",
+    "adcs_sensors": "CSS / MAG / IMU sensors",
+    "adcs_power_clock": "Power / clock / tables"
+  }
+}
