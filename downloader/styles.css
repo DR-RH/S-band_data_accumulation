@@ -43,6 +43,24 @@ h1 {
   letter-spacing: 0;
 }
 
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.app-version {
+  display: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+body.viewer-page .app-version {
+  display: inline-flex;
+}
+
 .server-state {
   margin: 6px 0 0;
   color: var(--muted);
