@@ -5,7 +5,7 @@ import json
 import math
 import sys
 from io import StringIO
-from typing import Any
+from typing import Annotated, Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
@@ -23,7 +23,12 @@ from db import (
     store_main_hk_payloads,
     store_realtime_hk_payloads,
 )
-from raw_prefilters import RawPrefilter, build_main_hk_raw_prefilter
+from raw_prefilters import (
+    RawPrefilter,
+    build_main_hk_raw_prefilter,
+    can_decode_main_hk_single_columns,
+    decode_main_hk_single_rows,
+)
 from settings import db_path, decoder_dir
 from sqlite_utils import connect, require_table
 
@@ -119,6 +124,17 @@ class RowsResponse(BaseModel):
     total: int
 
 
+class GraphColumnsResponse(BaseModel):
+    x: str
+    y1: list[str]
+    y2: list[str]
+
+
+class GraphRowsResponse(RowsResponse):
+    columns: GraphColumnsResponse
+    decode_mode: str
+
+
 class AdcsRowsResponse(RowsResponse):
     sampling_type: str | None
 
@@ -161,6 +177,14 @@ REALTIME_HK_COLUMNS = [
 GSE_REPORT_STATION_ORDER = ["ISAS", "Kyutech", "unknown"]
 GSE_REPORT_FIELDS = ["packet_id", "received_time"]
 DECODE_FILTER_SCAN_CHUNK_SIZE = 500
+MAIN_HK_GRAPH_BASE_COLUMNS = {
+    "unit_id",
+    "gse",
+    "packet_id",
+    "received_time",
+    "timestamp_obc",
+    "sort_timestamp",
+}
 
 
 def time_options(step_minutes: int = 30) -> str:
@@ -805,6 +829,129 @@ def main_hk(
             total = count_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
 
     return {"rows": rows, "limit": limit, "offset": offset, "total": total}
+
+
+@app.get(
+    "/graphs/main-hk",
+    response_model=GraphRowsResponse,
+    tags=["Read Payloads"],
+    summary="Read lightweight Main HK graph rows",
+)
+def graph_main_hk(
+    gse: Annotated[str | None, Query(description="Optional GSE filter.")] = None,
+    packet_id: Annotated[str | None, Query(description="Optional exact packet ID filter.")] = None,
+    start: Annotated[str | None, Query(description="Optional start timestamp_obc filter, ISO format.")] = None,
+    end: Annotated[str | None, Query(description="Optional end timestamp_obc filter, ISO format.")] = None,
+    received_start: Annotated[str | None, Query(description="Optional start received_time filter, ISO format.")] = None,
+    received_end: Annotated[str | None, Query(description="Optional end received_time filter, ISO format.")] = None,
+    value_filters: Annotated[str | None, Query(description="JSON encoded decoded value filters.")] = None,
+    decoder: Annotated[str, Query(description="Decoder version set for decoded value filters.")] = "latest",
+    order: Annotated[str, Query(pattern="^(asc|desc)$", description="Timestamp sort order.")] = "desc",
+    limit: Annotated[int, Query(ge=1, le=100000, description="Maximum rows to return.")] = 100,
+    offset: Annotated[int, Query(ge=0, description="Rows to skip for pagination.")] = 0,
+    x: Annotated[str, Query(description="Graph x-axis column name.")] = "timestamp_obc",
+    y1: Annotated[str | None, Query(description="JSON encoded y1 column names.")] = None,
+    y2: Annotated[str | None, Query(description="JSON encoded y2 column names.")] = None,
+):
+    x_column = parse_graph_x_column(x)
+    y1_columns = parse_graph_columns(y1, "y1")
+    y2_columns = parse_graph_columns(y2, "y2")
+    graph_columns = {"x": x_column, "y1": y1_columns, "y2": y2_columns}
+    requested_columns = unique_elements([x_column], y1_columns, y2_columns)
+    decoded_filters = parse_value_filters(value_filters)
+    needs_decoding = bool(decoded_filters) or any(
+        column not in MAIN_HK_GRAPH_BASE_COLUMNS for column in requested_columns
+    )
+    single_decode_columns = unique_elements(unique_filter_elements(decoded_filters), requested_columns)
+    decode_mode = "base"
+
+    with connect() as conn:
+        require_table(conn, MAIN_HK_TABLE)
+        ensure_payload_schema(conn, MAIN_HK_TABLE)
+        if needs_decoding and can_decode_main_hk_single_columns(single_decode_columns):
+            rows, total = select_main_hk_single_graph_rows(
+                conn=conn,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                count_args=(gse, packet_id, start, end, received_start, received_end),
+                decoder=decoder,
+                value_filters=decoded_filters,
+                value_columns=single_decode_columns,
+                limit=limit,
+                offset=offset,
+            )
+            decode_mode = "single"
+        elif decoded_filters:
+            raw_prefilter = build_main_hk_raw_prefilter(decoded_filters)
+            if raw_prefilter.supported_count == len(decoded_filters):
+                rows, total = select_decoded_page_rows(
+                    conn=conn,
+                    selector=select_main_hk_decode_candidate_rows,
+                    selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                    count=count_main_hk_preview_rows,
+                    count_args=(gse, packet_id, start, end, received_start, received_end),
+                    decoder=decoder,
+                    decode_rows=decode_main_hk_rows,
+                    value_columns=unique_elements(unique_filter_elements(decoded_filters), requested_columns),
+                    limit=limit,
+                    offset=offset,
+                    raw_prefilter=raw_prefilter,
+                    value_filters=decoded_filters,
+                )
+            else:
+                rows, total = select_decoded_preview_rows(
+                    conn=conn,
+                    selector=select_main_hk_decode_candidate_rows,
+                    selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                    decoder=decoder,
+                    decode_rows=decode_main_hk_rows,
+                    value_filters=decoded_filters,
+                    value_columns=requested_columns,
+                    exact_total=False,
+                    limit=limit,
+                    offset=offset,
+                    raw_prefilter=raw_prefilter,
+                )
+            decode_mode = "full"
+        elif needs_decoding:
+            rows, total = select_decoded_page_rows(
+                conn=conn,
+                selector=select_main_hk_decode_candidate_rows,
+                selector_args=(gse, packet_id, start, end, received_start, received_end, order),
+                count=count_main_hk_preview_rows,
+                count_args=(gse, packet_id, start, end, received_start, received_end),
+                decoder=decoder,
+                decode_rows=decode_main_hk_rows,
+                value_columns=requested_columns,
+                limit=limit,
+                offset=offset,
+            )
+            decode_mode = "full"
+        else:
+            rows = [
+                dict(row)
+                for row in select_main_hk_preview_rows(
+                    conn,
+                    gse,
+                    packet_id,
+                    start,
+                    end,
+                    received_start,
+                    received_end,
+                    order,
+                    limit,
+                    offset,
+                )
+            ]
+            total = count_main_hk_preview_rows(conn, gse, packet_id, start, end, received_start, received_end)
+
+    return {
+        "rows": project_graph_rows(rows, requested_columns),
+        "limit": limit,
+        "offset": offset,
+        "total": total,
+        "columns": graph_columns,
+        "decode_mode": decode_mode,
+    }
 
 
 @app.get(
@@ -1663,6 +1810,37 @@ def parse_value_columns(value_columns: str | None) -> list[str]:
     return columns
 
 
+def parse_graph_x_column(x: str) -> str:
+    column = str(x or "").strip()
+    if not column:
+        raise HTTPException(status_code=400, detail="x must be a non-empty column name.")
+    if column == "row_index":
+        raise HTTPException(status_code=400, detail="x cannot be row_index.")
+    return column
+
+
+def parse_graph_columns(value: str | None, field_name: str) -> list[str]:
+    if not value:
+        return []
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name} JSON: {exc.msg}") from exc
+    if not isinstance(decoded, list):
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a JSON array.")
+
+    columns: list[str] = []
+    for item in decoded:
+        column = str(item or "").strip()
+        if column and column != "row_index" and column not in columns:
+            columns.append(column)
+    return columns
+
+
+def project_graph_rows(rows: list[dict[str, Any]], columns: list[str]) -> list[dict[str, Any]]:
+    return [{column: row_value(row, column) for column in columns} for row in rows]
+
+
 def parse_filter_bound(value: Any, field: str, element: str) -> float | None:
     if value is None or value == "":
         return None
@@ -1754,6 +1932,69 @@ def select_decoded_page_rows(
     if raw_prefilter is None:
         return rows, count(conn, *count_args)
     return rows, count(conn, *count_args, raw_prefilter)
+
+
+def select_main_hk_single_graph_rows(
+    *,
+    conn,
+    selector_args: tuple,
+    count_args: tuple,
+    decoder: str,
+    value_filters: list[dict[str, Any]],
+    value_columns: list[str],
+    limit: int,
+    offset: int,
+) -> tuple[list[dict[str, Any]], int]:
+    require_latest_decoder(decoder)
+
+    if not value_filters:
+        candidates = select_main_hk_decode_candidate_rows(conn, *selector_args, limit, offset)
+        decoded_candidates = decode_main_hk_single_rows(candidates, value_columns)
+        rows = [
+            build_decoded_preview_row(candidate, decoded_candidate, value_columns)
+            for candidate, decoded_candidate in zip(candidates, decoded_candidates)
+        ]
+        return rows, count_main_hk_preview_rows(conn, *count_args)
+
+    raw_prefilter = build_main_hk_raw_prefilter(value_filters)
+    if raw_prefilter.supported_count == len(value_filters):
+        candidates = select_main_hk_decode_candidate_rows(conn, *selector_args, limit, offset, raw_prefilter)
+        decoded_candidates = decode_main_hk_single_rows(candidates, value_columns)
+        rows = [
+            build_decoded_preview_row(candidate, decoded_candidate, value_columns)
+            for candidate, decoded_candidate in zip(candidates, decoded_candidates)
+            if decoded_row_matches_filters(decoded_candidate, value_filters)
+        ]
+        return rows, count_main_hk_preview_rows(conn, *count_args, raw_prefilter)
+
+    candidate_prefilter = raw_prefilter if raw_prefilter.supported_count else None
+    matched_rows: list[dict[str, Any]] = []
+    matched_total = 0
+    candidate_offset = 0
+
+    while len(matched_rows) < limit:
+        candidates = select_decoded_candidates(
+            select_main_hk_decode_candidate_rows,
+            conn,
+            selector_args,
+            DECODE_FILTER_SCAN_CHUNK_SIZE,
+            candidate_offset,
+            candidate_prefilter,
+        )
+        if not candidates:
+            break
+
+        decoded_candidates = decode_main_hk_single_rows(candidates, value_columns)
+        for candidate, decoded_candidate in zip(candidates, decoded_candidates):
+            if not decoded_row_matches_filters(decoded_candidate, value_filters):
+                continue
+            if matched_total >= offset and len(matched_rows) < limit:
+                matched_rows.append(build_decoded_preview_row(candidate, decoded_candidate, value_columns))
+            matched_total += 1
+
+        candidate_offset += len(candidates)
+
+    return matched_rows, matched_total
 
 
 def select_decoded_download_rows(

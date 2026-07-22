@@ -1308,6 +1308,7 @@
         label: "Main HK",
         readEndpoint: "/main-hk",
         endpoint: "/downloads/main-hk.csv",
+        graphEndpoint: "/graphs/main-hk",
         total: mainAllColumns.length,
         presets: [
           { id: "main_all", label: "All columns", count: mainAllColumns.length, columns: mainAllColumns },
@@ -1502,7 +1503,7 @@
         state.viewerYSeries.push(defaultAdditionalViewerYColumn(y1Options.length ? y1Options : yColumns));
         renderViewerYSeriesControls(yColumns);
         updateViewerAxisDisplay();
-        renderViewer();
+        refreshViewerRowsForSeriesChange();
       });
     }
     if (addViewerY2Axis) {
@@ -1518,7 +1519,7 @@
         }
         renderViewerY2SeriesControls(yColumns);
         updateViewerAxisDisplay();
-        renderViewer();
+        refreshViewerRowsForSeriesChange();
       });
     }
     viewerGraphType.addEventListener("change", () => {
@@ -1830,6 +1831,18 @@
         params.set("raw", downloadModeSelect.value === "raw" ? "1" : "0");
         params.set("gse_report", downloadModeSelect.value === "gse" ? "1" : "0");
       }
+      return params.toString();
+    }
+
+    function viewerGraphQueryParams() {
+      const params = new URLSearchParams(queryParams({
+        limit: displayLimit(),
+        offset: 0,
+        download: false
+      }));
+      params.set("x", viewerXAxis.value);
+      params.set("y1", JSON.stringify(viewerSelectedYColumns()));
+      params.set("y2", JSON.stringify(viewerSelectedY2Columns()));
       return params.toString();
     }
 
@@ -2266,6 +2279,19 @@
       refreshViewerRows();
     }
 
+    function refreshViewerRowsForSeriesChange() {
+      if (IS_VIEWER_CONTROLS_EMBED) {
+        renderViewer();
+        scheduleEmbeddedViewerState();
+        return;
+      }
+      if (currentDataset().graphEndpoint) {
+        refreshViewerRows();
+        return;
+      }
+      renderViewer();
+    }
+
     function resetViewerRangeToAuto() {
       clearViewerRanges();
       renderViewer();
@@ -2521,7 +2547,7 @@
           state.viewerYSeries[index] = select.value;
           renderViewerYSeriesControls(yColumns);
           updateViewerAxisDisplay();
-          renderViewer();
+          refreshViewerRowsForSeriesChange();
         });
       });
 
@@ -2531,7 +2557,7 @@
           state.viewerYSeries.splice(index, 1);
           renderViewerYSeriesControls(yColumns);
           updateViewerAxisDisplay();
-          renderViewer();
+          refreshViewerRowsForSeriesChange();
         });
       });
     }
@@ -2581,7 +2607,7 @@
           state.viewerY2Series[index] = select.value;
           renderViewerY2SeriesControls(yColumns);
           updateViewerAxisDisplay();
-          renderViewer();
+          refreshViewerRowsForSeriesChange();
         });
       });
 
@@ -2591,7 +2617,7 @@
           state.viewerY2Series.splice(index, 1);
           renderViewerY2SeriesControls(yColumns);
           updateViewerAxisDisplay();
-          renderViewer();
+          refreshViewerRowsForSeriesChange();
         });
       });
     }
@@ -2668,17 +2694,29 @@
       if (!state.viewerOpen) return;
       const requestId = state.viewerRequestId + 1;
       state.viewerRequestId = requestId;
+      const dataset = currentDataset();
 
       renderUrl();
-      viewerStatus.textContent = "Loading CSV...";
-      viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="152">Loading CSV data...</text>`;
+      const loadingLabel = dataset.graphEndpoint ? "graph data" : "CSV data";
+      viewerStatus.textContent = `Loading ${loadingLabel}...`;
+      viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="152">Loading ${loadingLabel}...</text>`;
 
       try {
-        const response = await fetch(state.downloadUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const csvText = await response.text();
+        let rows;
+        if (dataset.graphEndpoint) {
+          try {
+            rows = await fetchViewerGraphRows(dataset);
+          } catch {
+            if (requestId !== state.viewerRequestId) return;
+            viewerStatus.textContent = "Loading CSV fallback...";
+            viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="152">Graph API failed; loading CSV...</text>`;
+            rows = await fetchViewerCsvRows();
+          }
+        } else {
+          rows = await fetchViewerCsvRows();
+        }
         if (requestId !== state.viewerRequestId) return;
-        state.viewerRows = parseCsvRows(csvText);
+        state.viewerRows = rows;
         renderViewer();
       } catch (error) {
         if (requestId !== state.viewerRequestId) return;
@@ -2686,6 +2724,26 @@
         viewerStatus.textContent = "0 rows";
         viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="152">Failed: ${escapeHtml(error.message)}</text>`;
       }
+    }
+
+    async function fetchViewerGraphRows(dataset) {
+      const response = await fetch(`${cleanApiBase()}${dataset.graphEndpoint}?${viewerGraphQueryParams()}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data || !Array.isArray(data.rows)) throw new Error("Invalid graph response");
+      return data.rows.map(normalizedViewerJsonRow);
+    }
+
+    async function fetchViewerCsvRows() {
+      const response = await fetch(state.downloadUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const csvText = await response.text();
+      return parseCsvRows(csvText);
+    }
+
+    function normalizedViewerJsonRow(row) {
+      if (!row || typeof row !== "object" || Array.isArray(row)) return {};
+      return { ...row };
     }
 
     function parseCsvRows(csvText) {
@@ -2859,7 +2917,7 @@
 
       if (!graphableSeries.length) {
         viewerStatus.textContent = `Y1 ${y1Columns.length} / Y2 ${y2Columns.length} / 0 plotted / ${state.viewerRows.length} fetched`;
-        viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="172">No graphable values in planned CSV.</text>`;
+        viewerChart.innerHTML = `<text class="viewer-empty" x="480" y="172">No graphable values in loaded data.</text>`;
         return;
       }
 
@@ -3641,8 +3699,17 @@
       if (value === null || value === undefined || String(value).trim() === "") return Number.NaN;
       const numeric = Number(value);
       if (Number.isFinite(numeric)) return numeric;
+      const booleanNumeric = booleanTextToNumber(value);
+      if (Number.isFinite(booleanNumeric)) return booleanNumeric;
       const time = parseDateTimeValue(value);
       return Number.isFinite(time) ? time : Number.NaN;
+    }
+
+    function booleanTextToNumber(value) {
+      const normalized = String(value).trim().toLowerCase();
+      if (["yes", "true", "on", "enabled", "valid", "active"].includes(normalized)) return 1;
+      if (["no", "false", "off", "disabled", "invalid", "inactive"].includes(normalized)) return 0;
+      return Number.NaN;
     }
 
     function viewerValueForColumn(row, column) {
