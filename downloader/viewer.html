@@ -6,16 +6,16 @@
   <title>S-band Viewer</title>
   <link rel="stylesheet" href="styles.css?v=20260614-download-mode">
   <style>
-    .demo-shell {
+    .downloader-shell {
       width: min(1280px, calc(100vw - 32px));
     }
 
-    body.viewer-page .demo-shell {
+    body.viewer-page .downloader-shell {
       width: min(1280px, calc(100vw - 24px));
     }
 
     body.viewer-page .tabs,
-    body.viewer-page .demo-time-filters,
+    body.viewer-page .time-filters,
     body.viewer-page .filter-drawer,
     body.viewer-page .summary-strip,
     body.viewer-page .column-board,
@@ -41,7 +41,7 @@
       background: #ffffff;
     }
 
-    body.viewer-embedded .demo-shell {
+    body.viewer-embedded .downloader-shell {
       width: 100%;
       margin: 0;
     }
@@ -88,13 +88,13 @@
       display: none;
     }
 
-    .demo-note {
+    .downloader-note {
       margin: 6px 0 0;
       color: var(--muted);
       font-size: 14px;
     }
 
-    .demo-bar {
+    .downloader-bar {
       display: grid;
       grid-template-columns: 170px 170px minmax(210px, 1fr) 130px;
       gap: 14px;
@@ -103,7 +103,7 @@
       background: #ffffff;
     }
 
-    .demo-time-filters {
+    .time-filters {
       padding: 22px;
       border-bottom: 1px solid var(--line);
       background: #ffffff;
@@ -469,14 +469,14 @@
       white-space: nowrap;
     }
 
-    .sample-table {
+    .preview-table {
       margin-top: 18px;
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
     }
 
-    .sample-table table {
+    .preview-table table {
       min-width: 760px;
     }
 
@@ -819,11 +819,11 @@
     }
 
     @media (max-width: 900px) {
-      .demo-shell {
+      .downloader-shell {
         width: calc(100vw - 20px);
       }
 
-      .demo-bar,
+      .downloader-bar,
       .summary-strip,
       .column-board,
       .filter-header,
@@ -867,7 +867,7 @@
   </style>
 </head>
 <body class="viewer-page">
-  <main class="app-shell demo-shell">
+  <main class="app-shell downloader-shell">
     <header class="app-header">
       <div>
         <h1>S-band Downloader</h1>
@@ -886,7 +886,7 @@
         <button class="tab" data-dataset="adcs" role="tab" aria-selected="false">ADCS HK</button>
       </div>
 
-      <form class="filters demo-time-filters">
+      <form class="filters time-filters">
         <div class="time-filter" role="radiogroup" aria-label="Time Filter">
           <span class="field-title">Time Filter</span>
           <label class="time-choice">
@@ -1083,7 +1083,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr id="sampleHeader"></tr>
+            <tr id="previewHeader"></tr>
           </thead>
           <tbody id="rowsBody">
             <tr><td colspan="4">No preview loaded.</td></tr>
@@ -1411,7 +1411,7 @@
     const filterSummary = document.querySelector("#filterSummary");
     const viewerFilterSummaryBar = document.querySelector("#viewerFilterSummaryBar");
     const viewerFilterChips = document.querySelector("#viewerFilterChips");
-    const sampleHeader = document.querySelector("#sampleHeader");
+    const previewHeader = document.querySelector("#previewHeader");
     const rowsBody = document.querySelector("#rowsBody");
     const searchButton = document.querySelector("#searchButton");
     const downloadButton = document.querySelector("#downloadButton");
@@ -1621,7 +1621,7 @@
       renderFilters();
       updateFilterSummary();
       renderUrl();
-      renderSampleTable();
+      renderPreviewTable();
       updatePager(0);
       renderViewerControls();
       renderViewer();
@@ -1893,12 +1893,25 @@
           y2Series: [...state.viewerY2Series],
           normalizeMode: viewerNormalizeMode.value,
           graphType: viewerGraphType.value,
-          xMin: viewerXMin.value,
-          xMax: viewerXMax.value,
-          yMin: viewerYMin.value,
-          yMax: viewerYMax.value
+          xMin: viewerRangeStateValue(viewerXMin),
+          xMax: viewerRangeStateValue(viewerXMax),
+          yMin: viewerRangeStateValue(viewerYMin),
+          yMax: viewerRangeStateValue(viewerYMax)
         }
       };
+    }
+
+    function viewerRangeStateValue(input) {
+      if (!input) return "";
+      return input.dataset.autoValue === "1" ? "" : input.value;
+    }
+
+    function setOptionalViewerParam(params, key, value) {
+      if (value === undefined || value === null || String(value).trim() === "") {
+        params.delete(key);
+        return;
+      }
+      params.set(key, value);
     }
 
     function viewerPageUrl(payload, options = {}) {
@@ -1923,10 +1936,10 @@
       params.set("y2", JSON.stringify(payload.viewer.y2Series));
       params.set("normalize", payload.viewer.normalizeMode || "none");
       params.set("graph", payload.viewer.graphType);
-      params.set("x_min", payload.viewer.xMin);
-      params.set("x_max", payload.viewer.xMax);
-      params.set("y_min", payload.viewer.yMin);
-      params.set("y_max", payload.viewer.yMax);
+      setOptionalViewerParam(params, "x_min", payload.viewer.xMin);
+      setOptionalViewerParam(params, "x_max", payload.viewer.xMax);
+      setOptionalViewerParam(params, "y_min", payload.viewer.yMin);
+      setOptionalViewerParam(params, "y_max", payload.viewer.yMax);
       if (options.embeddedMode) {
         params.set("embedded", options.embeddedMode);
       } else if (options.embedded) {
@@ -2306,7 +2319,7 @@
       datasets.adcs.presets.forEach(applyLabel);
     }
 
-    function renderSampleTable() {
+    function renderPreviewTable() {
       state.searchRows = [];
       state.viewerRows = [];
       renderTableMessage("No preview loaded.");
@@ -2316,13 +2329,13 @@
       if (state.searchRows.length) {
         renderRows(state.searchRows);
       } else {
-        renderSampleTable();
+        renderPreviewTable();
       }
     }
 
     function renderTableMessage(message) {
       const columns = previewColumnsForDataset();
-      sampleHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+      previewHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
       rowsBody.innerHTML = `<tr><td colspan="${columns.length}">${escapeHtml(message)}</td></tr>`;
       renderViewerControls();
       renderViewer();
@@ -2387,7 +2400,7 @@
 
     async function searchRows() {
       const columns = previewColumnsForDataset();
-      sampleHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+      previewHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
       rowsBody.innerHTML = `<tr><td colspan="${columns.length}">Loading...</td></tr>`;
 
       try {
@@ -2419,7 +2432,7 @@
 
     function renderRows(rows) {
       const columns = previewColumnsForDataset();
-      sampleHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+      previewHeader.innerHTML = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
       state.searchRows = rows.map((row, index) => normalizedSearchRow(row, columns, index));
       if (!rows.length) {
         rowsBody.innerHTML = `<tr><td colspan="${columns.length}">No rows found.</td></tr>`;
@@ -2932,8 +2945,8 @@
       const tooltipLimit = 6000;
       const renderedSeries = activeVisibleSeries.map((seriesItem) => ({
         ...seriesItem,
-        renderedPoints: sampleVisiblePoints(seriesItem.visiblePoints, renderedDotLimit),
-        tooltipPoints: sampleVisiblePoints(seriesItem.visiblePoints, tooltipLimit)
+        renderedPoints: thinVisiblePoints(seriesItem.visiblePoints, renderedDotLimit),
+        tooltipPoints: thinVisiblePoints(seriesItem.visiblePoints, tooltipLimit)
       }));
       const hiddenCount = visibleSeries.filter((seriesItem) => seriesItem.hidden).length;
       const statusHiddenText = hiddenCount ? `, ${hiddenCount} hidden` : "";
@@ -3066,14 +3079,14 @@
       return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 1))}...` : text;
     }
 
-    function sampleVisiblePoints(points, maxCount) {
+    function thinVisiblePoints(points, maxCount) {
       if (points.length <= maxCount) return points;
       const step = points.length / maxCount;
-      const sampled = [];
+      const selected = [];
       for (let index = 0; index < maxCount; index += 1) {
-        sampled.push(points[Math.floor(index * step)]);
+        selected.push(points[Math.floor(index * step)]);
       }
-      return sampled;
+      return selected;
     }
 
     function isFiniteDomain(min, max) {
