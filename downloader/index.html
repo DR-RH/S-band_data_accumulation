@@ -1364,6 +1364,7 @@
     const PAGE_SIZE = 200;
     const VALUE_FILTERS_ENABLED = true;
     const VIEWER_STATE_KEY = "s-band-downloader-viewer-state-v1";
+    const VIEWER_RESTORE_PARAM = "restore_viewer_state";
     const IS_VIEWER_PAGE = document.body.classList.contains("viewer-page");
     const VIEWER_URL_PARAMS = new URLSearchParams(window.location.search);
     const VIEWER_EMBED_MODE = IS_VIEWER_PAGE ? (VIEWER_URL_PARAMS.get("embedded") || "") : "";
@@ -1489,7 +1490,7 @@
     });
     viewerToggle.addEventListener("click", () => {
       if (IS_VIEWER_PAGE) {
-        window.location.href = "index.html";
+        returnToDownloaderPage();
         return;
       }
       openViewerPage();
@@ -1887,6 +1888,20 @@
       window.location.href = viewerPageUrl(payload);
     }
 
+    function returnToDownloaderPage() {
+      renderUrl();
+      const payload = collectViewerPageState();
+      try {
+        sessionStorage.setItem(VIEWER_STATE_KEY, JSON.stringify(payload));
+      } catch {
+        // The downloader can still open with its HTML defaults if storage is unavailable.
+      }
+      const url = new URL(viewerPageUrl(payload));
+      url.pathname = url.pathname.replace(/viewer\.html$/, "index.html");
+      url.searchParams.set(VIEWER_RESTORE_PARAM, "1");
+      window.location.href = url.toString();
+    }
+
     function collectViewerPageState() {
       return {
         dataset: state.dataset,
@@ -2102,6 +2117,20 @@
       }, "*");
     }
 
+    function readDownloaderReturnState() {
+      if (IS_VIEWER_PAGE) return null;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get(VIEWER_RESTORE_PARAM) !== "1") return null;
+
+      const payload = readViewerPageState();
+
+      if (window.history?.replaceState) {
+        const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+        window.history.replaceState(null, "", cleanUrl);
+      }
+      return payload && typeof payload === "object" ? payload : null;
+    }
+
     function readViewerPageState() {
       let payload = {};
       if (!IS_EMBEDDED_VIEWER) {
@@ -2139,6 +2168,12 @@
       if (params.has("x_max")) queryViewer.xMax = params.get("x_max");
       if (params.has("y_min")) queryViewer.yMin = params.get("y_min");
       if (params.has("y_max")) queryViewer.yMax = params.get("y_max");
+      if (IS_VIEWER_PAGE) {
+        if (!params.has("x_min")) queryViewer.xMin = "";
+        if (!params.has("x_max")) queryViewer.xMax = "";
+        if (!params.has("y_min")) queryViewer.yMin = "";
+        if (!params.has("y_max")) queryViewer.yMax = "";
+      }
 
       return {
         ...payload,
@@ -2158,7 +2193,7 @@
       }
     }
 
-    function applyViewerPageState(payload) {
+    function applyDownloaderPageState(payload) {
       if (payload.dataset && datasets[payload.dataset]) {
         state.dataset = payload.dataset;
       }
@@ -2190,6 +2225,10 @@
       tabs.forEach((item) => {
         item.setAttribute("aria-selected", String(item.dataset.dataset === state.dataset));
       });
+    }
+
+    function applyViewerPageState(payload) {
+      applyDownloaderPageState(payload);
       state.viewerOpen = true;
       state.viewerRows = [];
       state.viewerRequestId += 1;
@@ -3805,13 +3844,17 @@
 
     Promise.all([loadPicSetLabels(), loadValueColumns()]).finally(() => {
       const viewerPageState = IS_VIEWER_PAGE ? readViewerPageState() : null;
+      const downloaderReturnState = !IS_VIEWER_PAGE ? readDownloaderReturnState() : null;
+      const restoredState = viewerPageState || downloaderReturnState;
       if (viewerPageState) {
         applyViewerPageState(viewerPageState);
+      } else if (downloaderReturnState) {
+        applyDownloaderPageState(downloaderReturnState);
       } else {
         state.valueFilters = [defaultValueFilter()];
       }
       render();
-      if (viewerPageState) applyViewerControls(viewerPageState.viewer || {});
+      if (restoredState) applyViewerControls(restoredState.viewer || {});
       checkServer();
       const decoderPromise = loadDecoders();
       if (IS_VIEWER_PAGE) {
