@@ -4,8 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>S-band Viewer</title>
-  <link rel="stylesheet" href="styles.css?v=20260722-viewer-version">
+  <link rel="stylesheet" href="styles.css?v=20260727-hidden-controls">
   <style>
+    [hidden] {
+      display: none !important;
+    }
+
     .downloader-shell {
       width: min(1280px, calc(100vw - 32px));
     }
@@ -941,6 +945,14 @@
             <option value="20260504">20260504</option>
           </select>
         </label>
+        <label id="samplingTypeField" hidden>
+          Sampling
+          <select id="samplingTypeSelect" name="sampling_type">
+            <option value="">All</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+          </select>
+        </label>
       </form>
 
       <details class="filter-drawer" id="valueFilterDrawer">
@@ -1373,6 +1385,7 @@
     const IS_VIEWER_GRAPH_EMBED = VIEWER_EMBED_MODE === "graph" || VIEWER_EMBED_MODE === "1";
     if (IS_EMBEDDED_VIEWER) document.body.classList.add("viewer-embedded");
     if (IS_VIEWER_CONTROLS_EMBED) document.body.classList.add("viewer-controls-only");
+    let serverCheckRequestId = 0;
     if (IS_VIEWER_GRAPH_EMBED) document.body.classList.add("viewer-graph-only");
     let picSetLabels = { ...DEFAULT_PIC_SET_LABELS };
     let valueColumns = {};
@@ -1405,6 +1418,8 @@
     const decoderSelect = document.querySelector("#decoderSelect");
     const downloadModeSelect = document.querySelector("#downloadModeSelect");
     const gseSelect = document.querySelector("#gseSelect");
+    const samplingTypeField = document.querySelector("#samplingTypeField");
+    const samplingTypeSelect = document.querySelector("#samplingTypeSelect");
     const limitInput = document.querySelector("#limitInput");
     const orderSelect = document.querySelector("#orderSelect");
     const startDate = document.querySelector("#startDate");
@@ -1475,6 +1490,7 @@
     decoderSelect.addEventListener("change", handleDownloadSourceChange);
     downloadModeSelect.addEventListener("change", handleDownloadSourceChange);
     gseSelect.addEventListener("change", handleDownloadSourceChange);
+    samplingTypeSelect.addEventListener("change", handleDownloadSourceChange);
     limitInput.addEventListener("input", handleDownloadSourceChange);
     orderSelect.addEventListener("change", handleDownloadSourceChange);
     startDate.addEventListener("change", handleDownloadSourceChange);
@@ -1493,6 +1509,7 @@
         returnToDownloaderPage();
         return;
       }
+      if (isViewerUnavailableForDataset()) return;
       openViewerPage();
     });
     viewerXAxis.addEventListener("change", handleViewerAxisChange);
@@ -1623,6 +1640,7 @@
     }
 
     function render() {
+      renderDatasetControls();
       renderFilters();
       updateFilterSummary();
       renderUrl();
@@ -1630,6 +1648,20 @@
       updatePager(0);
       renderViewerControls();
       renderViewer();
+    }
+
+    function renderDatasetControls() {
+      const showSampling = state.dataset === "adcs";
+      samplingTypeField.hidden = !showSampling;
+      samplingTypeSelect.disabled = !showSampling;
+      const disableViewer = !IS_VIEWER_PAGE && isViewerUnavailableForDataset();
+      viewerToggle.disabled = disableViewer;
+      viewerToggle.setAttribute("aria-disabled", String(disableViewer));
+      viewerToggle.title = disableViewer ? "ADCS Viewer is not implemented yet." : "";
+    }
+
+    function isViewerUnavailableForDataset() {
+      return state.dataset === "adcs";
     }
 
     function renderFilters() {
@@ -1770,7 +1802,14 @@
         `;
       }).join("");
 
-      viewerFilterChips.innerHTML = `${timeChip}${valueChips}`;
+      const samplingChip = state.dataset === "adcs" && samplingTypeSelect.value ? `
+        <span class="viewer-filter-chip">
+          <strong>Sampling</strong>
+          <span>${escapeHtml(samplingTypeLabel())}</span>
+        </span>
+      ` : "";
+
+      viewerFilterChips.innerHTML = `${timeChip}${samplingChip}${valueChips}`;
     }
 
     function valueFilterRangeLabel(filter) {
@@ -1793,6 +1832,12 @@
       if (start) return `from ${start}`;
       if (end) return `until ${end}`;
       return "All time";
+    }
+
+    function samplingTypeLabel() {
+      if (samplingTypeSelect.value === "high") return "High";
+      if (samplingTypeSelect.value === "normal") return "Normal";
+      return "All";
     }
 
     function formatViewerDateTime(dateValue, timeValue) {
@@ -1823,6 +1868,9 @@
         if (end) params.set("end", end);
       }
       if (gseSelect.value) params.set("gse", gseSelect.value);
+      if (state.dataset === "adcs" && samplingTypeSelect.value) {
+        params.set("sampling_type", samplingTypeSelect.value);
+      }
       params.set("limit", String(limit));
       params.set("offset", String(offset));
       params.set("order", orderSelect.value);
@@ -1878,6 +1926,7 @@
     }
 
     function openViewerPage() {
+      if (isViewerUnavailableForDataset()) return;
       renderUrl();
       const payload = collectViewerPageState();
       try {
@@ -1909,6 +1958,7 @@
         decoder: decoderSelect.value,
         downloadMode: downloadModeSelect.value,
         gse: gseSelect.value,
+        samplingType: samplingTypeSelect.value,
         limit: limitInput.value,
         order: orderSelect.value,
         timeMode: selectedTimeMode(),
@@ -1953,6 +2003,9 @@
       params.set("decoder", payload.decoder);
       params.set("download_mode", payload.downloadMode);
       params.set("gse", payload.gse);
+      if (payload.dataset === "adcs") {
+        setOptionalViewerParam(params, "sampling_type", payload.samplingType);
+      }
       params.set("limit", payload.limit);
       params.set("order", payload.order);
       params.set("time_mode", payload.timeMode);
@@ -2148,6 +2201,7 @@
       if (params.has("decoder")) queryPayload.decoder = params.get("decoder");
       if (params.has("download_mode")) queryPayload.downloadMode = params.get("download_mode");
       if (params.has("gse")) queryPayload.gse = params.get("gse");
+      if (params.has("sampling_type")) queryPayload.samplingType = params.get("sampling_type");
       if (params.has("limit")) queryPayload.limit = params.get("limit");
       if (params.has("order")) queryPayload.order = params.get("order");
       if (params.has("time_mode")) queryPayload.timeMode = params.get("time_mode");
@@ -2213,6 +2267,7 @@
       setInputValue(apiBase, payload.apiBase);
       setSelectValue(downloadModeSelect, payload.downloadMode);
       setSelectValue(gseSelect, payload.gse);
+      setSelectValue(samplingTypeSelect, payload.samplingType);
       setInputValue(limitInput, payload.limit);
       setSelectValue(orderSelect, payload.order);
       setInputValue(startDate, payload.startDate);
@@ -2225,6 +2280,7 @@
       tabs.forEach((item) => {
         item.setAttribute("aria-selected", String(item.dataset.dataset === state.dataset));
       });
+      renderDatasetControls();
     }
 
     function applyViewerPageState(payload) {
@@ -2433,16 +2489,29 @@
     }
 
     async function checkServer() {
+      const requestId = serverCheckRequestId + 1;
+      serverCheckRequestId = requestId;
+      const checkedApiBase = cleanApiBase();
+      serverState.textContent = `Checking: ${checkedApiBase}`;
+      serverState.className = "server-state";
       try {
-        const response = await fetch(`${cleanApiBase()}/health`);
+        const response = await fetch(`${checkedApiBase}/health`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        if (requestId !== serverCheckRequestId || checkedApiBase !== cleanApiBase()) return;
         serverState.textContent = `Connected: ${data.db_path}`;
         serverState.className = "server-state ok";
       } catch (error) {
+        if (requestId !== serverCheckRequestId || checkedApiBase !== cleanApiBase()) return;
         serverState.textContent = `Disconnected: ${error.message}`;
         serverState.className = "server-state error";
       }
+    }
+
+    function markServerConnected() {
+      serverCheckRequestId += 1;
+      serverState.textContent = `Connected: ${cleanApiBase()}`;
+      serverState.className = "server-state ok";
     }
 
     async function loadDecoders() {
@@ -2483,6 +2552,7 @@
         })}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
+        markServerConnected();
         state.total = Math.min(data.total || 0, limit);
         renderRows(data.rows || []);
         updatePager((data.rows || []).length);
@@ -2773,6 +2843,7 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (!data || !Array.isArray(data.rows)) throw new Error("Invalid graph response");
+      markServerConnected();
       return data.rows.map(normalizedViewerJsonRow);
     }
 
@@ -2780,6 +2851,7 @@
       const response = await fetch(state.downloadUrl);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const csvText = await response.text();
+      markServerConnected();
       return parseCsvRows(csvText);
     }
 
