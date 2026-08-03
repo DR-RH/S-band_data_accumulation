@@ -2202,6 +2202,20 @@ def decoded_csv_response(filename: str, decoded_rows: list[dict]):
     )
 
 
+def add_download_timestamps(rows, decoded_rows: list[dict], timestamp_column: str) -> list[dict]:
+    timestamped_rows = []
+    for raw_row, decoded_row in zip(rows, decoded_rows):
+        timestamped_row = {
+            "received_time": row_value(raw_row, "received_time"),
+            timestamp_column: row_value(raw_row, timestamp_column),
+        }
+        for key, value in dict(decoded_row).items():
+            if key not in timestamped_row:
+                timestamped_row[key] = value
+        timestamped_rows.append(timestamped_row)
+    return timestamped_rows
+
+
 def gse_report_csv_response(dataset: str, gse: str | None, rows):
     columns, report_rows = build_gse_report_rows(rows, gse)
     return csv_response(gse_report_filename(dataset, gse), columns, report_rows)
@@ -2256,21 +2270,24 @@ def decode_main_hk_rows(rows, decoder: str) -> list[dict]:
     require_latest_decoder(decoder)
     from decoder import decoder_main_HK
 
-    return decoder_main_HK.decode(join_data_hex(rows))
+    decoded_rows = decoder_main_HK.decode(join_data_hex(rows))
+    return add_download_timestamps(rows, decoded_rows, "timestamp_obc")
 
 
 def decode_realtime_hk_rows(rows, decoder: str) -> list[dict]:
     require_latest_decoder(decoder)
     from decoder import decoder_real_time_telemetry
 
-    return decoder_real_time_telemetry.decode(join_data_hex(rows))
+    decoded_rows = decoder_real_time_telemetry.decode(join_data_hex(rows))
+    return add_download_timestamps(rows, decoded_rows, "timestamp_obc")
 
 
 def decode_adcs_hk_rows(rows, decoder: str) -> list[dict]:
     require_latest_decoder(decoder)
     from decoder import decoder_adcs_HK
 
-    return decoder_adcs_HK.decode(join_data_hex(rows))
+    decoded_rows = decoder_adcs_HK.decode(join_data_hex(rows))
+    return add_download_timestamps(rows, decoded_rows, "timestamp_adcs")
 
 
 def join_data_hex(rows) -> bytes:
