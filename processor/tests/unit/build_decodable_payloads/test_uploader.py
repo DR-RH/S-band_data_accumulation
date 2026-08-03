@@ -103,6 +103,21 @@ def test_upload_realtime_hk_payloads_posts_expected_payload(monkeypatch):
     ]
 
 
+def test_post_json_wraps_os_connection_errors(monkeypatch):
+    def fail_urlopen(req, timeout):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(uploader.request, "urlopen", fail_urlopen)
+
+    try:
+        uploader.upload_payload("http://127.0.0.1:8000", "/payloads/main-hk", {"rows": []})
+    except uploader.UploadConnectionError as exc:
+        assert "Could not connect to DB server" in str(exc)
+        assert "timed out" in str(exc)
+    else:
+        raise AssertionError("UploadConnectionError was not raised")
+
+
 def test_payload_from_df_builds_upload_payload():
     df = pd.DataFrame([{"Received time": "received", "Data": "aa"}])
 

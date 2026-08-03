@@ -73,5 +73,6 @@ def _post_json(server_url: str, path: str, payload: dict) -> dict:
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise UploadRejectedError(f"DB server rejected upload to {url}: {exc.code} {detail}") from exc
-    except error.URLError as exc:
-        raise UploadConnectionError(f"Could not connect to DB server at {server_url}: {exc.reason}") from exc
+    except (error.URLError, TimeoutError, OSError) as exc:
+        reason = getattr(exc, "reason", str(exc))
+        raise UploadConnectionError(f"Could not connect to DB server at {server_url}: {reason}") from exc
