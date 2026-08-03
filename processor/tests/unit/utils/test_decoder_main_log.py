@@ -26,3 +26,9 @@ def test_decode_skips_all_ff_padding_chunks():
         "command_name",
         "return",
     ]
+
+
+def test_decode_handles_large_unsigned_timestamp_without_os_error():
+    result = decoder_main_log.decode(bytes.fromhex("00000080c0fa01"))
+
+    assert result.iloc[0]["timestamp"] == "2038/01/19 03:14:08"

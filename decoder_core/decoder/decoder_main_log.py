@@ -7,6 +7,10 @@ import pytz
 import os
 import pandas as pd
 
+UNIX_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
+PADDING_TIMESTAMP = 0xFFFFFFFF
+TIMESTAMP_FORMAT = "%Y/%m/%d %H:%M:%S"
+
 
 def command_list(command):
     switcher = {
@@ -120,9 +124,9 @@ def decode(data):
 
 def _decode_chunk(chunk):
     # print(line.hex())
-    (timestamp, source, command, error_value) = struct.unpack("i3B", chunk)
-    if timestamp != -1 or source != 0xFF or command != 0xFF or error_value != 0xFF:
-        timestamp = datetime.datetime.fromtimestamp(timestamp,tz=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S")
+    (timestamp, source, command, error_value) = struct.unpack("<I3B", chunk)
+    if timestamp != PADDING_TIMESTAMP or source != 0xFF or command != 0xFF or error_value != 0xFF:
+        timestamp = _format_unix_timestamp(timestamp)
         full_command = (source << 8) | command
         command_name = command_list(full_command)
         # print(chunk)
@@ -140,6 +144,10 @@ def _decode_chunk(chunk):
         return None
         # write data to file
         # output_lines[j] = (f"{timestamp},'%02X,'%02X,{command_name},'%02X\n" % (source, command, error_value))
+
+
+def _format_unix_timestamp(timestamp):
+    return (UNIX_EPOCH + datetime.timedelta(seconds=timestamp)).strftime(TIMESTAMP_FORMAT)
 
 # def decode(bin_file):
 #     # with open(output_file, 'w') as output:
