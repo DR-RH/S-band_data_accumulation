@@ -876,7 +876,7 @@
       <div>
         <div class="title-row">
           <h1>S-band Downloader</h1>
-          <span class="app-version">Last updated 2026/07/22</span>
+          <span class="app-version" id="appVersion">Last updated —</span>
         </div>
         <p class="server-state" id="serverState">Server not checked</p>
       </div>
@@ -1415,6 +1415,7 @@
     const tabs = document.querySelectorAll(".tab");
     const apiBase = document.querySelector("#apiBase");
     const serverState = document.querySelector("#serverState");
+    const appVersion = document.querySelector("#appVersion");
     const decoderSelect = document.querySelector("#decoderSelect");
     const downloadModeSelect = document.querySelector("#downloadModeSelect");
     const gseSelect = document.querySelector("#gseSelect");
@@ -3906,6 +3907,20 @@
       return apiBase.value.replace(/\/+$/, "");
     }
 
+    async function showLastUpdated() {
+      try {
+        const response = await fetch(location.href, { method: "HEAD", cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const lastModified = response.headers.get("Last-Modified");
+        if (!lastModified) throw new Error("Last-Modified missing");
+        const date = new Date(lastModified);
+        if (!Number.isFinite(date.getTime())) throw new Error("Last-Modified unreadable");
+        appVersion.textContent = `Last updated ${date.getFullYear()}/${padDatePart(date.getMonth() + 1)}/${padDatePart(date.getDate())}`;
+      } catch {
+        // The placeholder stays when the page is opened without an HTTP server.
+      }
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -3913,6 +3928,8 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;");
     }
+
+    showLastUpdated();
 
     Promise.all([loadPicSetLabels(), loadValueColumns()]).finally(() => {
       const viewerPageState = IS_VIEWER_PAGE ? readViewerPageState() : null;
